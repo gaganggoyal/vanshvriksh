@@ -38,32 +38,41 @@ export async function POST(req: Request) {
   const now = Date.now();
   let sent: "otp" | "link" | "both" = method;
 
-  if (method === "otp" || method === "both") {
-    const otp = generateOtp();
-    await prisma.authChallenge.create({
-      data: {
-        email,
-        type: "OTP",
-        tokenHash: hashToken(otp),
-        expiresAt: new Date(now + 10 * 60 * 1000),
-        previewToken,
-      },
-    });
-    await withOrigin(appUrlFromRequest(req), () => deliverMail(otpMail(email, otp, previewToken, intent === "register")));
-  }
+  try {
+    if (method === "otp" || method === "both") {
+      const otp = generateOtp();
+      await prisma.authChallenge.create({
+        data: {
+          email,
+          type: "OTP",
+          tokenHash: hashToken(otp),
+          expiresAt: new Date(now + 10 * 60 * 1000),
+          previewToken,
+        },
+      });
+      await withOrigin(appUrlFromRequest(req), () => deliverMail(otpMail(email, otp, previewToken, intent === "register")));
+    }
 
-  if (method === "link" || method === "both") {
-    const token = generateToken();
-    await prisma.authChallenge.create({
-      data: {
-        email,
-        type: "MAGIC",
-        tokenHash: hashToken(token),
-        expiresAt: new Date(now + 20 * 60 * 1000),
-        previewToken,
-      },
-    });
-    await withOrigin(appUrlFromRequest(req), () => deliverMail(magicMail(email, token, previewToken)));
+    if (method === "link" || method === "both") {
+      const token = generateToken();
+      await prisma.authChallenge.create({
+        data: {
+          email,
+          type: "MAGIC",
+          tokenHash: hashToken(token),
+          expiresAt: new Date(now + 20 * 60 * 1000),
+          previewToken,
+        },
+      });
+      await withOrigin(appUrlFromRequest(req), () => deliverMail(magicMail(email, token, previewToken)));
+    }
+  } catch (err) {
+    // A wrong key or an unverified domain lands here; say so plainly instead of a bare 500.
+    console.error("[auth] sign-in email failed:", err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: "We couldn't send the email just now. Please try again in a minute." },
+      { status: 502 },
+    );
   }
 
   return NextResponse.json({

@@ -72,7 +72,16 @@ Or sign in with your own email. With `EMAIL_DELIVERY=local` (default), the verif
 | `resend` | `RESEND_API_KEY` | |
 | `local` (default) | — | Dev only: the verify page's **letterbox** shows codes to whoever asked. Off in production unless `ALLOW_LETTERBOX=true` — never enable that on a public server. |
 
-In production with no real transport, sign-in answers *"Email sign-in is being set up"* instead of pretending to send.
+In production with no real transport, sign-in answers *"Email sign-in is being set up"* instead of pretending to send. If the provider rejects a letter (wrong key, unverified domain), sign-in says so and the reason is logged (`journalctl -u meravansh`).
+
+Check a transport end to end with the app's `.env` loaded:
+
+```bash
+set -a; . ./.env; set +a
+npm run email:test -- you@example.com
+```
+
+Resend and most SMTP providers only send from a domain whose DNS records (SPF, DKIM) they have verified.
 
 ## Auth
 

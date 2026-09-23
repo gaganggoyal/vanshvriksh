@@ -146,6 +146,23 @@ export function kinFoundMail(to: string, ownName: string, locale: "en" | "hi"): 
   };
 }
 
+/** Proves the transport end to end: `npm run email:test -- you@example.com`. */
+export function testMail(to: string): Mail {
+  const from = process.env.EMAIL_FROM || BRAND.from;
+  const html = shell(`
+    <p style="margin:0 0 8px;font-size:16px;font-weight:600;">Email is working</p>
+    <p style="line-height:1.55;color:#3F3E4C;margin:0;font-size:14px;">This test went out through <b>${esc(deliveryMode())}</b> from ${esc(from)}. Sign-in codes and invitations will reach people the same way.</p>
+  `);
+  return {
+    to,
+    subject: `${BRAND.name} test email`,
+    html,
+    text: `Email is working. Sent through ${deliveryMode()} from ${from}.`,
+    purpose: "test",
+    previewToken: "",
+  };
+}
+
 async function sendResend(mail: Mail) {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("RESEND_API_KEY missing");

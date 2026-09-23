@@ -43,10 +43,10 @@ export function AuthForm({ mode, demo }: { mode: Mode; demo: boolean }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, method, intent: mode }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
-      setError(data.error || "Could not send.");
+      setError(data.error || "Could not send the email. Please try again.");
       return;
     }
     const q = new URLSearchParams({ email, sent: method, delivery: data.delivery });
