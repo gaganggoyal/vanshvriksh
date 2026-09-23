@@ -1,0 +1,13 @@
+{
+  "name": "वंश वृक्ष — Vansh Vriksh",
+  "short_name": "वंश वृक्ष",
+  "description": "A privacy-first family tree. Names on the canvas, dates kept private.",
+  "start_url": "/tree",
+  "display": "standalone",
+  "background_color": "#F4EDE0",
+  "theme_color": "#6B1D2A",
+  "lang": "hi",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
