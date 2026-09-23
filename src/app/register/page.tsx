@@ -3,13 +3,13 @@ import { AuthForm } from "@/components/site/auth-form";
 import { PublicPage } from "@/components/site/public-page";
 import { demoEnabled } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Create your family tree" };
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
     <PublicPage>
-      <AuthForm mode="signin" demo={demoEnabled()} />
+      <AuthForm mode="register" demo={demoEnabled()} />
     </PublicPage>
   );
 }

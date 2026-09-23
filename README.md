@@ -1,6 +1,6 @@
-# वंश वृक्ष — Vansh Vriksh
+# Mera Vansh — Family Tree · मेरा वंश
 
-**Find the relatives your family never wrote down.** A privacy-first family tree for Indian families: write the people you know, and वंश वृक्ष finds the same people in other families' trees — across spellings and scripts — and tells you exactly how you are related (मामा, चचेरा भाई, नानी…). Sign in with an **email OTP** or a **magic link**. The canvas shows **names only**; dates of birth stay private and are used only to recognise the same person across families.
+**[meravansh.lol](https://meravansh.lol) — find the relatives your family never wrote down.** A privacy-first family tree for Indian families: write the people you know, and Mera Vansh finds the same people in other families' trees — across spellings and scripts — and tells you exactly how you are related (मामा, चचेरा भाई, नानी…). Sign in with an **email OTP** or a **magic link**. The canvas shows **names only**; dates of birth stay private and are used only to recognise the same person across families.
 
 ## Finding relatives
 
@@ -37,6 +37,7 @@
 - **Names in any script** — Devanagari is transliterated (with Hindi schwa deletion: कमला → kamlaa) and every spelling reduced to a phonetic key, so हरिशंकर, Harishankar and "Hari Shankar", or Laxmi and Lakshmi, meet in search and matching
 - **Grow your tree** checklist (parents and all four grandparents — where most matches come from), a **list view** grouped by पितृ पक्ष / मातृ पक्ष / ससुराल, and one-tap invites for any living relative
 - English + हिन्दी (with `<html lang>` following the chosen language), installable as a PWA
+- Public site: landing with a counts-only relative search, **Create account** / **Sign in**, **About us** (Gagan — Founder, Vansh — Co-founder), **Privacy policy**, **Terms**, share image, `robots.txt` and `sitemap.xml`
 - Local letterbox so the app is fully usable without SMTP
 
 ## Quick start
@@ -58,9 +59,20 @@ On the sign-in page, use **Walk a demo family**:
 
 - **Priya Sharma** and **Arjun Sharma** are cousins — both trees hold the same grandparents (`Harishankar` / `Hari Shankar Sharma`, `Kamla` / `Kamala Devi`)
 - **Mahesh Tiwari** is Priya's मामा — his tree holds Priya's mother Sunita and her departed parents
+- Demo families are shared by every visitor, **isolated from real families** (they never match, search or link across), cannot send invitations or be deleted, and are rebuilt by `npm run db:seed`
 - As Priya: **Possible kin** shows "whoever wrote their tree is your मामा"; **Find relatives** → `Tiwari` or `रामप्रसाद` finds her नाना; confirm the Sunita match as both Priya and Mahesh, then tick **Linked families** on the tree
 
 Or sign in with your own email. With `EMAIL_DELIVERY=local` (default), the verify screen’s **letterbox** shows the OTP and magic link.
+
+## Email
+
+| `EMAIL_DELIVERY` | Needs | Notes |
+| --- | --- | --- |
+| `smtp` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Any provider (Zoho, Google Workspace, SES, Brevo…) |
+| `resend` | `RESEND_API_KEY` | |
+| `local` (default) | — | Dev only: the verify page's **letterbox** shows codes to whoever asked. Off in production unless `ALLOW_LETTERBOX=true` — never enable that on a public server. |
+
+In production with no real transport, sign-in answers *"Email sign-in is being set up"* instead of pretending to send.
 
 ## Auth
 
@@ -122,6 +134,8 @@ A pair is proposed when the score ≥ 58 after:
 npm run check      # typecheck + lint + unit tests
 npm test           # matcher, names/transliteration, kinship, layout, family merge and GEDCOM fixtures
 npm run test:e2e   # end-user use cases against a running server (VV_BASE, default :3010)
+                   # production mode hides sign-in codes, so start the test server with:
+                   # ALLOW_LETTERBOX=true npx next start -p 3010
 npm run test:layout
 ```
 

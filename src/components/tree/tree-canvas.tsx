@@ -1,8 +1,10 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { LocateFixed, Maximize2, Minus, Plus } from "lucide-react";
 import { layoutTree, type LayoutPerson } from "@/lib/tree-layout";
 import type { Rel } from "@/lib/graph";
+import { avatarTone } from "@/lib/avatar";
 
 type Props = {
   people: LayoutPerson[];
@@ -203,7 +205,7 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, Props>(function TreeCanva
                   y1={e.y1}
                   x2={e.x2}
                   y2={e.y2}
-                  stroke={hot ? "#6B1D2A" : "#C4A35A"}
+                  stroke={hot ? "#5B4BF5" : "#C9C5DA"}
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
@@ -214,7 +216,7 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, Props>(function TreeCanva
               <path
                 key={i}
                 d={`M ${e.x1} ${e.y1} V ${busY} H ${e.x2} V ${e.y2}`}
-                stroke={hot ? "#6B1D2A" : "#8A7340"}
+                stroke={hot ? "#5B4BF5" : "#A7A3BC"}
                 strokeWidth={hot ? 2.4 : 1.6}
                 strokeLinejoin="round"
                 opacity={selectedId && !hot ? 0.55 : 1}
@@ -241,35 +243,29 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, Props>(function TreeCanva
                 n.external ? "border-dashed" : ""
               } ${
                 selected
-                  ? "border-maroon bg-paper ring-2 ring-gold"
+                  ? "border-brand bg-surface ring-4 ring-brand/20"
                   : root
-                    ? "border-maroon/50 bg-paper"
+                    ? "border-brand/50 bg-surface"
                     : n.external
-                      ? "border-gold-dim/60 bg-cream/90 hover:border-maroon/40"
+                      ? "border-muted/60 bg-canvas/90 hover:border-brand/40"
                       : neighbours.has(n.id)
-                        ? "border-maroon/40 bg-paper"
-                        : "border-gold/35 bg-paper/95 hover:border-maroon/40"
+                        ? "border-brand/40 bg-surface"
+                        : "border-line/35 bg-surface/95 hover:border-brand/40"
               }`}
             >
               <span
-                className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold ${
-                  n.gender === "FEMALE"
-                    ? "bg-maroon/15 text-maroon"
-                    : n.gender === "MALE"
-                      ? "bg-leaf/15 text-leaf"
-                      : "bg-gold/20 text-gold-dim"
-                }`}
+                className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold ${avatarTone(n.id)}`}
               >
                 {n.initials}
               </span>
               <span className="min-w-0">
                 <span className="block truncate font-medium leading-tight">{n.displayName}</span>
                 {n.nativeName && (
-                  <span className="block truncate font-devanagari text-xs text-maroon-soft">{n.nativeName}</span>
+                  <span className="block truncate font-devanagari text-xs text-brand-soft">{n.nativeName}</span>
                 )}
-                <span className="mt-0.5 block truncate text-[10px] uppercase tracking-wider text-gold-dim">
-                  <span className={n.isLiving ? "text-leaf" : "text-gold-dim"}>{n.isLiving ? "●" : "○"}</span>{" "}
-                  {label ? <span className="font-devanagari normal-case tracking-normal text-maroon">{label}</span> : n.isLiving ? "" : "स्मृति"}
+                <span className="mt-0.5 block truncate text-[10px] uppercase tracking-wider text-muted">
+                  <span className={n.isLiving ? "text-grow" : "text-muted"}>{n.isLiving ? "●" : "○"}</span>{" "}
+                  {label ? <span className="font-devanagari normal-case tracking-normal text-brand">{label}</span> : n.isLiving ? "" : "स्मृति"}
                 </span>
               </span>
             </button>
@@ -277,19 +273,26 @@ export const TreeCanvas = forwardRef<TreeCanvasHandle, Props>(function TreeCanva
         })}
       </div>
 
-      <div className="absolute bottom-4 right-4 z-10 flex flex-col overflow-hidden rounded-xl border border-gold/40 bg-paper/95 shadow-card backdrop-blur">
-        <button type="button" className="px-3 py-2 text-sm hover:bg-gold/15" onClick={() => zoomAt(1.2)} aria-label="Zoom in" title="Zoom in">
-          +
-        </button>
-        <button type="button" className="border-t border-gold/25 px-3 py-2 text-sm hover:bg-gold/15" onClick={() => zoomAt(1 / 1.2)} aria-label="Zoom out" title="Zoom out">
-          −
-        </button>
-        <button type="button" className="border-t border-gold/25 px-3 py-2 text-xs hover:bg-gold/15" onClick={fit} aria-label="Fit whole tree" title="Fit whole tree">
-          ⤢
-        </button>
-        <button type="button" className="border-t border-gold/25 px-3 py-2 text-xs hover:bg-gold/15" onClick={() => centerOn(selectedId || focusId, 1)} aria-label="Centre on selected" title="Centre on selected">
-          ◎
-        </button>
+      <div className="absolute bottom-4 right-4 z-10 flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white/95 shadow-card backdrop-blur">
+        {(
+          [
+            [Plus, "Zoom in", () => zoomAt(1.2)],
+            [Minus, "Zoom out", () => zoomAt(1 / 1.2)],
+            [Maximize2, "Fit whole tree", fit],
+            [LocateFixed, "Centre on selected", () => centerOn(selectedId || focusId, 1)],
+          ] as const
+        ).map(([Icon, label, act], i) => (
+          <button
+            key={label}
+            type="button"
+            onClick={act}
+            aria-label={label}
+            title={label}
+            className={`grid h-9 w-9 place-items-center text-ink/70 transition hover:bg-brand-tint hover:text-brand ${i ? "border-t border-ink/[0.06]" : ""}`}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        ))}
       </div>
     </div>
   );

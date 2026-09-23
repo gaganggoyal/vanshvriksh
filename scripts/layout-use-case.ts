@@ -15,7 +15,7 @@ function assert(cond: unknown, msg: string) {
 
 async function main() {
   const user = await prisma.user.findUnique({
-    where: { email: "priya@vanshvriksh.app" },
+    where: { email: "priya@demo.meravansh.lol" },
     include: { tree: true },
   });
   if (!user?.tree) throw new Error("Seed Priya first");

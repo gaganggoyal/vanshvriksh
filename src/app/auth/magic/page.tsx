@@ -16,7 +16,7 @@ function MagicInner() {
   }, [params]);
   return (
     <div className="grid min-h-screen place-items-center">
-      <p className="font-devanagari text-2xl text-maroon">प्रवेश हो रहा है…</p>
+      <p className="font-devanagari text-2xl text-brand">प्रवेश हो रहा है…</p>
     </div>
   );
 }

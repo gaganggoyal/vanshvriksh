@@ -25,7 +25,9 @@ model Tree {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String   @default("वंश वृक्ष")
+  title     String   @default("Family tree")
+  /// Shared demo family: matched and searched only among other demo families, reset nightly.
+  isDemo    Boolean  @default(false)
   /// Remembered (departed) ancestors can be found by other families' searches. Living people never are.
   discoverable Boolean @default(true)
   createdAt DateTime @default(now())

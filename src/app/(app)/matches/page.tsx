@@ -58,12 +58,12 @@ export default function MatchesPage() {
 
   return (
     <div className="relative z-10 mx-auto max-w-4xl px-5 pb-16 pt-8">
-      <p className="font-devanagari text-sm text-gold-dim">{c.matchesAlt}</p>
-      <h1 className="mt-2 font-display text-4xl text-maroon">{c.matches}</h1>
+      <p className="font-devanagari text-sm text-muted">{c.matchesAlt}</p>
+      <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-ink">{c.matches}</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink/70">{c.matchIntro}</p>
-      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gold-dim">{c.matchesHint}</p>
+      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted">{c.matchesHint}</p>
       {msg && (
-        <p className="mt-4 rounded-2xl border border-leaf/30 bg-leaf/5 px-4 py-3 text-sm text-leaf" role="status">
+        <p className="mt-4 rounded-2xl border border-grow/30 bg-grow/5 px-4 py-3 text-sm text-grow" role="status">
           {msg}
         </p>
       )}
@@ -73,7 +73,7 @@ export default function MatchesPage() {
           <MatchCard key={m.id} m={m} c={c} onAct={act} />
         ))}
         {rows && !rows.length && (
-          <div className="rounded-3xl border border-dashed border-gold/40 p-8 text-center">
+          <div className="rounded-3xl border border-dashed border-line/40 p-8 text-center">
             <p className="text-sm text-ink/70">{c.noMatches}</p>
             <Link href="/find" className="btn-primary mt-4">
               {c.find}
@@ -83,7 +83,7 @@ export default function MatchesPage() {
       </div>
 
       {rows && rows.length > 0 && (
-        <Link href="/find" className="mt-8 inline-block text-sm text-maroon underline underline-offset-4">
+        <Link href="/find" className="mt-8 inline-block text-sm text-brand underline underline-offset-4">
           {c.findMore} →
         </Link>
       )}
@@ -106,20 +106,20 @@ function WithTerm({ text, term }: { text: string; term: React.ReactNode }) {
 function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, a: "confirm" | "dismiss") => void }) {
   const b = m.bridge;
   return (
-    <article className={`card-paper rounded-3xl p-6 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+    <article className={`card rounded-3xl p-6 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-gold/20 px-3 py-1 text-[11px] uppercase tracking-wider text-gold-dim">
+          <span className="rounded-full bg-line/20 px-3 py-1 text-[11px] uppercase tracking-wider text-muted">
             {c.score} {Math.min(99, m.score)}%
           </span>
           {m.source !== "auto" && (
-            <span className="rounded-full border border-gold/40 px-3 py-1 text-[11px] text-maroon">
+            <span className="rounded-full border border-line/40 px-3 py-1 text-[11px] text-brand">
               {m.source === "invite" ? c.sourceInvite : c.sourceSearch}
             </span>
           )}
         </div>
         <span
-          className={`text-xs uppercase tracking-wider ${m.status === "CONFIRMED" ? "text-leaf" : m.status === "DISMISSED" ? "text-gold-dim" : "text-maroon"}`}
+          className={`text-xs uppercase tracking-wider ${m.status === "CONFIRMED" ? "text-grow" : m.status === "DISMISSED" ? "text-muted" : "text-brand"}`}
         >
           {m.status === "CONFIRMED" ? c.confirmed : m.status === "DISMISSED" ? c.dismissed : c.pending}
         </span>
@@ -129,20 +129,20 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
         <div>
           <p className="field-label">{c.yourTree}</p>
           <p className="font-display text-xl">{m.mine.displayName}</p>
-          <p className="font-devanagari text-maroon-soft">{m.mine.nativeName}</p>
+          <p className="font-devanagari text-brand-soft">{m.mine.nativeName}</p>
         </div>
-        <span className="hidden text-2xl text-gold md:block" aria-hidden>
+        <span className="hidden text-2xl text-line md:block" aria-hidden>
           ⇄
         </span>
         <div>
           <p className="field-label">{c.theirTree}</p>
           <p className="font-display text-xl">{m.theirs.displayName}</p>
-          <p className="font-devanagari text-maroon-soft">{m.theirs.nativeName}</p>
+          <p className="font-devanagari text-brand-soft">{m.theirs.nativeName}</p>
         </div>
       </div>
 
       {b && (b.hi || b.adds > 0) && (
-        <div className={`mt-5 rounded-2xl px-4 py-3 ${m.status === "CONFIRMED" ? "bg-leaf/10" : "bg-cream/70"}`}>
+        <div className={`mt-5 rounded-2xl px-4 py-3 ${m.status === "CONFIRMED" ? "bg-grow/10" : "bg-canvas/70"}`}>
           {b.hi && (
             <p className="text-sm text-ink/80">
               <WithTerm
@@ -153,7 +153,7 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
                 }
                 term={
                   <>
-                    <span className="font-devanagari text-lg text-maroon">{b.hi}</span>
+                    <span className="font-devanagari text-lg text-brand">{b.hi}</span>
                     {b.en && <span className="mx-1 text-xs text-ink/55">· {b.en}</span>}
                   </>
                 }
@@ -161,7 +161,7 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
             </p>
           )}
           {b.adds > 0 && (
-            <p className="mt-1 text-xs text-leaf">{fill(m.status === "CONFIRMED" ? c.added : c.wouldAdd, { n: b.adds })}</p>
+            <p className="mt-1 text-xs text-grow">{fill(m.status === "CONFIRMED" ? c.added : c.wouldAdd, { n: b.adds })}</p>
           )}
         </div>
       )}
@@ -173,21 +173,21 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
       )}
       <ul className="mt-3 flex flex-wrap gap-2">
         {m.reasonCodes.map((r) => (
-          <li key={r.code} className="rounded-full border border-gold/30 px-3 py-1 text-xs text-gold-dim">
+          <li key={r.code} className="rounded-full border border-line/30 px-3 py-1 text-xs text-muted">
             {reasonText(c, r)}
           </li>
         ))}
       </ul>
 
       {m.status === "CONFIRMED" && m.linked && (
-        <div className="mt-5 rounded-2xl border border-leaf/30 bg-leaf/5 p-4">
-          <p className="field-label !text-leaf">{c.linkedKin}</p>
+        <div className="mt-5 rounded-2xl border border-grow/30 bg-grow/5 p-4">
+          <p className="field-label !text-grow">{c.linkedKin}</p>
           <p className="text-xs text-ink/60">{c.theirRelatives}</p>
           <dl className="mt-2 grid gap-1 text-sm sm:grid-cols-3">
             {(["parents", "spouses", "children"] as const).map((k) =>
               m.linked![k].length ? (
                 <div key={k}>
-                  <dt className="text-[11px] uppercase tracking-wider text-gold-dim">
+                  <dt className="text-[11px] uppercase tracking-wider text-muted">
                     {k === "parents" ? c.parentsLabel : k === "spouses" ? c.spouse : c.childrenLabel}
                   </dt>
                   <dd>{m.linked![k].join(", ")}</dd>
@@ -197,16 +197,16 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
           </dl>
           <Link
             href={`/tree?linked=1&person=${m.mine.id}`}
-            className="mt-3 inline-block text-sm font-medium text-leaf underline underline-offset-4"
+            className="mt-3 inline-block text-sm font-medium text-grow underline underline-offset-4"
           >
             {c.seeOnTree} →
           </Link>
         </div>
       )}
       {m.status === "PENDING" && m.confirmedByThem && !m.confirmedByMe && (
-        <p className="mt-3 text-sm text-leaf">{c.theyConfirmed}</p>
+        <p className="mt-3 text-sm text-grow">{c.theyConfirmed}</p>
       )}
-      {m.status === "PENDING" && m.confirmedByMe && <p className="mt-3 text-sm text-gold-dim">{c.youConfirmed}</p>}
+      {m.status === "PENDING" && m.confirmedByMe && <p className="mt-3 text-sm text-muted">{c.youConfirmed}</p>}
       {m.status === "PENDING" && !m.confirmedByMe && (
         <div className="mt-5 flex flex-wrap gap-2">
           <button className="btn-primary" onClick={() => onAct(m.id, "confirm")}>
@@ -219,7 +219,7 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
       )}
       {m.status === "PENDING" && m.confirmedByMe && (
         <div className="mt-3">
-          <button className="text-xs text-terracotta" onClick={() => onAct(m.id, "dismiss")}>
+          <button className="text-xs text-danger" onClick={() => onAct(m.id, "dismiss")}>
             {c.dismissMatch}
           </button>
         </div>

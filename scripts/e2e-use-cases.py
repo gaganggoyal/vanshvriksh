@@ -102,8 +102,8 @@ print(f"\nवंश वृक्ष end-user use cases  →  {BASE}\n")
 print("1. Public pages & auth gates")
 code, body, h = curl([f"{BASE}/"], raw=True)
 ok("landing 200", status_of(h) == 200, h.get(":status"))
-ok("landing has वंश वृक्ष", "वंश वृक्ष" in str(body), str(body)[:80])
-ok("landing has heritage hero", "/images/hero.jpg" in str(body))
+ok("landing carries the Mera Vansh brand", "Mera Vansh" in str(body), str(body)[:80])
+ok("landing leads with relative search", 'id="teaser"' in str(body))
 ok("landing has sign-in CTA", "/login" in str(body))
 
 code, body, h = curl([f"{BASE}/login"], raw=True)
@@ -111,12 +111,12 @@ ok("login 200", status_of(h) == 200)
 ok("login form is server-rendered", "Email me a code" in str(body), "SSR HTML lacks the form (client-only bail-out)")
 
 code, body, h = curl([f"{BASE}/manifest.webmanifest"], raw=True)
-ok("PWA manifest served", status_of(h) == 200 and "वंश वृक्ष" in str(body))
+ok("PWA manifest served", status_of(h) == 200 and "Mera Vansh" in str(body))
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/"], raw=True)
 ok("security headers present", h.get("x-frame-options") == "DENY" and h.get("x-content-type-options") == "nosniff", str({k: v for k, v in h.items() if k.startswith("x-")}))
 
-code, body, h = curl([f"{BASE}/images/hero.jpg", "-o", "/dev/null"], raw=True)
-ok("hero image 200", status_of(h) == 200)
+code, body, h = curl([f"{BASE}/favicon.svg", "-o", "/dev/null"], raw=True)
+ok("favicon 200", status_of(h) == 200)
 
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/tree"], raw=True)
 ok("tree redirects when signed out", status_of(h) in (307, 308, 302), h.get(":status") + " " + h.get("location", ""))
@@ -453,22 +453,48 @@ curl(["-X", "POST", f"{BASE}/api/people/{fid}/relatives", "-H", "content-type: a
       "-d", json.dumps({"relation": "father", "givenName": "Harishankar", "familyName": "Sharma",
                         "nativeName": "हरिशंकर शर्मा", "gender": "MALE", "birthDate": "1940-01-18",
                         "village": "Jaipur", "gotra": "Bharadwaj"})], c4)
-code, m4, h = curl([f"{BASE}/api/matches"], c4)
-found = m4.get("matches", []) if isinstance(m4, dict) else []
-ok("new cousin auto-matched to existing Harishankar", any("Harishankar" in m["mine"]["displayName"] or "Hari" in m["theirs"]["displayName"] for m in found), str([(m["mine"]["displayName"], m["theirs"]["displayName"], m["score"]) for m in found]))
-ok("new cousin match hides dates", "1940-01-18" not in json.dumps(m4) and "birthDate" not in json.dumps(m4))
+def new_family(tag, root, relatives=()):
+    """Sign up a fresh family by email code and write its first people."""
+    em = unique_email(tag)
+    ck = new_cookie()
+    code, body, h = curl(["-X", "POST", f"{BASE}/api/auth/request", "-H", "content-type: application/json",
+                          "-d", json.dumps({"email": em, "method": "otp", "intent": "register"})], ck)
+    code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
+    curl(["-X", "POST", f"{BASE}/api/auth/verify-otp", "-H", "content-type: application/json",
+          "-d", json.dumps({"email": em, "code": otp_from_box(box)})], ck)
+    curl(["-X", "POST", f"{BASE}/api/onboarding", "-H", "content-type: application/json", "-d", json.dumps(root)], ck)
+    code, t, h = curl([f"{BASE}/api/tree"], ck)
+    ids = {"root": t.get("focusId")}
+    for key, focus, relation, payload in relatives:
+        code, made, h = curl(["-X", "POST", f"{BASE}/api/people/{ids[focus]}/relatives", "-H", "content-type: application/json",
+                              "-d", json.dumps({"relation": relation, **payload})], ck)
+        ids[key] = made.get("person", {}).get("id")
+    return em, ck, ids
 
-# the other families were told — by letter, never with a date in it
-code, box, h = curl([f"{BASE}/api/auth/letterbox?token="], raw=True)
+email5, c5, ids5 = new_family(
+    "cousin2",
+    {"givenName": "Rohan", "familyName": "Sharma", "gender": "MALE", "birthDate": "1991-06-06", "village": "Jaipur", "gotra": "Bharadwaj"},
+    [("father", "root", "father", {"givenName": "Hari Shankar", "familyName": "Sharma", "nativeName": "हरि शंकर शर्मा",
+                                    "gender": "MALE", "birthDate": "1940-01-18", "village": "Jaipur", "gotra": "Bharadwaj"})],
+)
+code, m5, h = curl([f"{BASE}/api/matches"], c5)
+found = m5.get("matches", []) if isinstance(m5, dict) else []
+ok("two real families find the same grandfather", any(m["mine"]["displayName"] == "Hari Shankar Sharma" and m["theirs"]["displayName"] == "Harishankar Sharma" for m in found), str([(m["mine"]["displayName"], m["theirs"]["displayName"], m["score"]) for m in found][:6]))
+ok("cross-family match hides dates", "1940-01-18" not in json.dumps(m5) and "birthDate" not in json.dumps(m5))
+
 import sqlite3
-db = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prisma", "dev.db"))
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prisma", "dev.db")
+db = sqlite3.connect(DB_PATH)
+crossing = db.execute(
+    "select count(*) from Match m join Person a on a.id = m.personAId join Tree ta on ta.id = a.treeId "
+    "join Person b on b.id = m.personBId join Tree tb on tb.id = b.treeId where ta.isDemo != tb.isDemo"
+).fetchone()[0]
 kin_rows = db.execute(
-    "select \"to\", subject, text, createdAt from EmailOutbox where purpose = 'kin' and \"to\" in ('priya@vanshvriksh.app', 'arjun@vanshvriksh.app') order by createdAt desc limit 2"
+    "select \"to\", subject, text, createdAt from EmailOutbox where purpose = 'kin' and \"to\" = ? order by createdAt desc limit 2", (email4,)
 ).fetchall()
 db.close()
-recent = [r for r in kin_rows if float(r[3]) > (time.time() - 600) * 1000]
-ok("kin-found letter sent to the demo family this run", len(recent) >= 1, str(kin_rows)[:200])
-kin_rows = recent
+ok("demo families never match real ones", crossing == 0, f"{crossing} crossing matches")
+ok("the first family was told by letter", len(kin_rows) >= 1, str(kin_rows)[:200])
 ok("kin-found letter carries no date", all("1940" not in (r[1] + r[2]) for r in kin_rows))
 ok("kin-found letter links to matches", all("/matches" in r[2] for r in kin_rows))
 
@@ -494,6 +520,12 @@ code, body, h = curl(
     ["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json",
      "-H", "origin: " + BASE, "-d", json.dumps({"email": unique_email("invitee")})],
     priya,
+)
+ok("demo families cannot send invitations", status_of(h) == 403, str(body))
+code, body, h = curl(
+    ["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json",
+     "-H", "origin: " + BASE, "-d", json.dumps({"email": unique_email("invitee")})],
+    c4,
 )
 ok("invite sends letter", isinstance(body, dict) and body.get("ok"), str(body))
 if isinstance(body, dict) and body.get("previewToken"):
@@ -561,11 +593,12 @@ def demo_login(who):
     curl(["-X", "POST", f"{BASE}/api/auth/demo", "-H", "content-type: application/json", "-d", json.dumps({"who": who})], ck)
     return ck
 
+def demo_tree_root(ck):
+    code, t, h = curl([f"{BASE}/api/tree"], ck)
+    return t.get("focusId")
+
 pri, mah = demo_login("priya"), demo_login("mahesh")
 
-code, teaser, h = curl([f"{BASE}/api/public/search?q=Tiwari"])
-ok("public teaser counts remembered Tiwaris", isinstance(teaser, dict) and teaser.get("people", 0) >= 3 and teaser.get("families") == 1, str(teaser))
-ok("public teaser names places, not people", "Ajmer" in teaser.get("places", []) and "Ramprasad" not in json.dumps(teaser), str(teaser))
 code, teaser2, h = curl([f"{BASE}/api/public/search?q=Kartik"])
 ok("public teaser never counts the living", teaser2.get("people") == 0, str(teaser2))
 code, body, h = curl([f"{BASE}/api/find?q=Tiwari"], raw=True)
@@ -657,44 +690,44 @@ ok("and come back", len(back.get("results", [])) == 1, str(back))
 
 # ---------------------------------------------------------------------------
 print("\n11. Invite a relative as a person in your tree")
-code, ptree, h = curl([f"{BASE}/api/tree"], pri)
-ananya = next(p for p in ptree["people"] if p["displayName"] == "Ananya Sharma")
-inv_email = unique_email("ananya")
+inviter_email, kav, kids = new_family(
+    "kavya",
+    {"givenName": "Kavya", "familyName": "Rao", "gender": "FEMALE", "birthDate": "1996-03-03", "village": "Mysuru"},
+    [
+        ("father", "root", "father", {"givenName": "Suresh", "familyName": "Rao", "gender": "MALE", "birthDate": "1966-01-01", "village": "Mysuru"}),
+        ("ishaan", "root", "sibling", {"givenName": "Ishaan", "familyName": "Rao", "gender": "MALE", "birthDate": "1999-09-09", "village": "Mysuru"}),
+        ("diya", "root", "sibling", {"givenName": "Diya", "familyName": "Rao", "gender": "FEMALE", "birthDate": "2001-01-01", "village": "Mysuru"}),
+        ("venkat", "father", "father", {"givenName": "Venkatesh", "familyName": "Raokar", "gender": "MALE", "birthDate": "1931-07-07", "village": "Mysuru", "isLiving": False}),
+    ],
+)
+inv_email = unique_email("ishaan")
 code, body, h = curl(["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json",
-                      "-d", json.dumps({"email": inv_email, "personId": ananya["id"]})], pri)
+                      "-d", json.dumps({"email": inv_email, "personId": kids["ishaan"]})], kav)
 ok("invite for a named person", isinstance(body, dict) and body.get("ok"), str(body))
 code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
 letter = (box.get("emails") or [{}])[0]
-ok("invite letter says who they are to you", "Ananya Sharma" in letter.get("text", "") and "छोटी बहन" in letter.get("text", ""), letter.get("text", "")[:200])
+ok("invite letter says who they are to you", "Ishaan Rao" in letter.get("text", "") and "छोटा भाई" in letter.get("text", ""), letter.get("text", "")[:200])
 url, tok = magic_from_box(box)
 nk = new_cookie()
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/api/auth/magic?token={tok}"], nk, raw=True)
 ok("invitee lands on onboarding", "/onboarding" in h.get("location", ""), h.get("location"))
 code, ob, h = curl([f"{BASE}/api/onboarding"], nk)
 inv = ob.get("invite") or {}
-ok("onboarding is pre-filled from the invitation", inv.get("prefill", {}).get("givenName") == "Ananya" and inv.get("inviter") == "Priya Sharma", str(ob))
-ok("prefill carries no private date", "birthDate" not in json.dumps(ob) and "1998" not in json.dumps(ob))
+ok("onboarding is pre-filled from the invitation", inv.get("prefill", {}).get("givenName") == "Ishaan" and inv.get("inviter") == "Kavya Rao", str(ob))
+ok("prefill carries no private date", "birthDate" not in json.dumps(ob) and "1999" not in json.dumps(ob))
 code, body, h = curl(["-X", "POST", f"{BASE}/api/onboarding", "-H", "content-type: application/json",
-                      "-d", json.dumps({**inv.get("prefill", {}), "birthDate": "1998-09-01"})], nk)
+                      "-d", json.dumps({**inv.get("prefill", {}), "birthDate": "1999-09-09"})], nk)
 ok("joining links the two trees at once", isinstance(body, dict) and body.get("linked") is True, str(body))
 code, nm, h = curl([f"{BASE}/api/matches"], nk)
 inv_match = next((m for m in nm.get("matches", []) if m.get("source") == "invite"), {})
-ok("invite link is confirmed on both sides", inv_match.get("status") == "CONFIRMED" and inv_match.get("source") == "invite", str(inv_match.get("status")))
-ok("new member sees Priya as elder sister", inv_match.get("bridge", {}).get("hi") == "बड़ी बहन", str(inv_match.get("bridge")))
+ok("invite link is confirmed on both sides", inv_match.get("status") == "CONFIRMED", str(inv_match.get("status")))
+ok("new member sees Kavya as elder sister", inv_match.get("bridge", {}).get("hi") == "बड़ी बहन", str(inv_match.get("bridge")))
 code, ntree, h = curl([f"{BASE}/api/tree?linked=1"], nk)
-ok("new member's tree already holds Priya's family", any(p["displayName"] == "Harishankar Sharma" and p.get("external") for p in ntree.get("people", [])), str([p["displayName"] for p in ntree.get("people", [])]))
+ok("new member's tree already holds Kavya's family", any(p["displayName"] == "Suresh Rao" and p.get("external") for p in ntree.get("people", [])), str([p["displayName"] for p in ntree.get("people", [])]))
 
-# existing family invited as a person: pending, already vouched by the inviter
-ex_email = unique_email("existing")
-ek = new_cookie()
-code, body, h = curl(["-X", "POST", f"{BASE}/api/auth/request", "-H", "content-type: application/json", "-d", json.dumps({"email": ex_email, "method": "otp"})], ek)
-code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
-curl(["-X", "POST", f"{BASE}/api/auth/verify-otp", "-H", "content-type: application/json", "-d", json.dumps({"email": ex_email, "code": otp_from_box(box)})], ek)
-curl(["-X", "POST", f"{BASE}/api/onboarding", "-H", "content-type: application/json", "-d", json.dumps({"givenName": "Diya", "familyName": "Sharma", "gender": "FEMALE"})], ek)
-code, atree, h = curl([f"{BASE}/api/tree"], demo_login("arjun"))
-diya = next(p for p in atree["people"] if p["displayName"] == "Diya Sharma")
-arj = demo_login("arjun")
-code, body, h = curl(["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json", "-d", json.dumps({"email": ex_email, "personId": diya["id"]})], arj)
+# an existing family invited as a person: pending, already vouched by the inviter
+ex_email, ek, _ = new_family("existing", {"givenName": "Diya", "familyName": "Rao", "gender": "FEMALE"})
+code, body, h = curl(["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json", "-d", json.dumps({"email": ex_email, "personId": kids["diya"]})], kav)
 code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
 url, tok = magic_from_box(box)
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/api/auth/magic?token={tok}"], ek, raw=True)
@@ -703,8 +736,46 @@ code, em, h = curl([f"{BASE}/api/matches"], ek)
 em_row = next((m for m in em.get("matches", []) if m.get("source") == "invite"), {})
 ok("waits for their yes, inviter already said yes", em_row.get("status") == "PENDING" and em_row.get("confirmedByThem") and not em_row.get("confirmedByMe"), str(em_row and {k: em_row.get(k) for k in ("status", "confirmedByMe", "confirmedByThem")}))
 
-code, body, h = curl(["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json", "-d", json.dumps({"email": unique_email("x"), "personId": mahesh_id})], pri)
+code, body, h = curl(["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json", "-d", json.dumps({"email": unique_email("x"), "personId": mahesh_id})], kav)
 ok("cannot invite as someone outside your tree", status_of(h) == 400, str(body))
+
+# ---------------------------------------------------------------------------
+print("\n12. Demo isolation, new pages, brand")
+code, real_hit, h = curl([f"{BASE}/api/find?q=Venkatesh+Raokar"], nk)
+ok("real families find each other's ancestors", any(r["displayName"] == "Venkatesh Raokar" for r in real_hit.get("results", [])), str(real_hit)[:200])
+code, demo_hit, h = curl([f"{BASE}/api/find?q=Venkatesh+Raokar"], demo_login("priya"))
+ok("demo visitors never see real families", not demo_hit.get("results"), str(demo_hit)[:200])
+code, real_demo, h = curl([f"{BASE}/api/find?q=Ramprasad+Tiwari"], nk)
+ok("real families never see demo families", not real_demo.get("results"), str(real_demo)[:200])
+code, t_demo, h = curl([f"{BASE}/api/public/search?q=Ramprasad"])
+ok("public teaser ignores demo families", t_demo.get("people") == 0, str(t_demo))
+code, teaser, h = curl([f"{BASE}/api/public/search?q=Raokar"])
+ok("public teaser counts remembered people of real families", teaser.get("people", 0) >= 1 and teaser.get("families", 0) >= 1, str(teaser))
+ok("public teaser names places, never people", "Mysuru" in teaser.get("places", []) and "Venkatesh" not in json.dumps(teaser), str(teaser))
+venkat = next((r for r in real_hit.get("results", []) if r["displayName"] == "Venkatesh Raokar"), {})
+code, body, h = curl(["-X", "POST", f"{BASE}/api/find/link", "-H", "content-type: application/json",
+                      "-d", json.dumps({"mode": "same", "personId": venkat.get("id"), "myPersonId": demo_tree_root(demo_login("priya"))})], demo_login("priya"))
+ok("demo cannot link to a real person", status_of(h) == 404, str(body))
+code, body, h = curl(["-X", "DELETE", f"{BASE}/api/account", "-H", "content-type: application/json", "-d", '{"confirm":true}'], demo_login("arjun"))
+ok("demo family cannot be deleted", status_of(h) == 403, str(body))
+
+for path, needle in [
+    ("/register", "Start your family tree"),
+    ("/login", "Welcome back"),
+    ("/about", "Co-founder"),
+    ("/privacy", "Privacy policy"),
+    ("/terms", "Terms of service"),
+]:
+    code, page, h = curl([f"{BASE}{path}"], raw=True)
+    ok(f"{path} renders", status_of(h) == 200 and needle in str(page), f"{h.get(':status')} {needle!r}")
+code, page, h = curl([f"{BASE}/about"], raw=True)
+ok("about names Gagan as Founder and Vansh as Co-founder", "Gagan" in str(page) and "Founder" in str(page) and "Vansh" in str(page))
+code, body, h = curl([f"{BASE}/robots.txt"], raw=True)
+ok("robots.txt keeps private pages out", status_of(h) == 200 and "Disallow: /tree" in str(body) and "sitemap" in str(body).lower(), str(body)[:200])
+code, body, h = curl([f"{BASE}/sitemap.xml"], raw=True)
+ok("sitemap lists the public pages", status_of(h) == 200 and "<loc>" in str(body))
+code, body, h = curl(["-o", "/dev/null", f"{BASE}/opengraph-image"], raw=True)
+ok("share image renders", status_of(h) == 200 and h.get("content-type", "").startswith("image/png"), str(h.get("content-type")))
 
 print("\n" + ("=" * 56))
 print(f"Passed {passes}   Failed {len(fails)}")

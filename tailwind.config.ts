@@ -1,44 +1,54 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Mera Vansh design tokens. Named for their role, not their hue:
+ * brand (violet) for action, grow (emerald) for links and living,
+ * ink / muted / line for text and structure, canvas / surface for ground.
+ */
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        ink: "#1A120B",
-        maroon: {
-          DEFAULT: "#6B1D2A",
-          deep: "#4A121C",
-          soft: "#8A3A46",
+        ink: "#0E0D14",
+        muted: "#6B6A7B",
+        line: "#A7A3BC",
+        surface: "#FFFFFF",
+        canvas: {
+          DEFAULT: "#F7F7FB",
+          deep: "#EEEDF5",
         },
-        gold: {
-          DEFAULT: "#C4A35A",
-          light: "#E2C98A",
-          dim: "#8A7340",
+        brand: {
+          DEFAULT: "#5B4BF5",
+          deep: "#4535D9",
+          soft: "#6456E0",
+          light: "#C8C1FF",
+          tint: "#F0EEFF",
         },
-        cream: {
-          DEFAULT: "#F4EDE0",
-          deep: "#E8DCC8",
+        grow: {
+          DEFAULT: "#0B7F5F",
+          soft: "#34C79A",
+          tint: "#E7F8F1",
         },
-        paper: "#FBF7F0",
-        leaf: {
-          DEFAULT: "#2F4F3E",
-          mist: "#4A6B5A",
-        },
-        terracotta: "#B85C38",
+        danger: "#CF3036",
       },
       fontFamily: {
-        display: ["var(--font-display)", "Georgia", "serif"],
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        devanagari: ["var(--font-deva)", "Noto Sans Devanagari", "serif"],
+        display: ["var(--font-display)", "var(--font-deva)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)", "var(--font-deva)", "ui-sans-serif", "system-ui", "sans-serif"],
+        devanagari: ["var(--font-deva)", "Noto Sans Devanagari", "sans-serif"],
       },
       boxShadow: {
-        card: "0 10px 40px -18px rgba(26, 18, 11, 0.35)",
-        lift: "0 18px 50px -20px rgba(107, 29, 42, 0.35)",
+        card: "0 1px 2px rgba(14, 13, 20, 0.04), 0 10px 30px -14px rgba(14, 13, 20, 0.14)",
+        lift: "0 2px 4px rgba(14, 13, 20, 0.04), 0 24px 60px -24px rgba(69, 53, 217, 0.35)",
+        glow: "0 8px 24px -8px rgba(91, 75, 245, 0.55)",
       },
-      backgroundImage: {
-        grain:
-          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.15  0 0 0 0 0.1  0 0 0 0 0.07  0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+      keyframes: {
+        rise: { "0%": { opacity: "0", transform: "translateY(8px)" }, "100%": { opacity: "1", transform: "none" } },
+        float: { "0%,100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-6px)" } },
+      },
+      animation: {
+        rise: "rise .5s ease-out both",
+        float: "float 6s ease-in-out infinite",
       },
     },
   },

@@ -69,18 +69,18 @@ function OnboardInner() {
         <Logo />
         <LangSwitch />
       </div>
-      <div className="card-paper mt-8 rounded-3xl p-7">
-        <h1 className="font-display text-3xl text-maroon">{c.onboardingTitle}</h1>
+      <div className="card mt-8 rounded-3xl p-7">
+        <h1 className="font-display text-3xl font-bold tracking-tight text-ink">{c.onboardingTitle}</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink/70">{c.onboardingHint}</p>
         {invite && (
-          <div className="mt-5 rounded-2xl border border-leaf/30 bg-leaf/5 p-4 text-sm leading-relaxed">
+          <div className="mt-5 rounded-2xl border border-grow/30 bg-grow/5 p-4 text-sm leading-relaxed">
             <p>
               {invite.hi
                 ? fill(c.invitedBanner, { inviter: invite.inviter, term: invite.hi })
                 : fill(c.invitedBannerPlain, { inviter: invite.inviter })}
             </p>
-            <label className="mt-3 flex items-center gap-2 font-medium text-leaf">
-              <input type="checkbox" className="accent-leaf" checked={linkInvite} onChange={(e) => setLinkInvite(e.target.checked)} />
+            <label className="mt-3 flex items-center gap-2 font-medium text-grow">
+              <input type="checkbox" className="accent-grow" checked={linkInvite} onChange={(e) => setLinkInvite(e.target.checked)} />
               {fill(c.linkInvite, { inviter: invite.inviter })}
             </label>
           </div>
@@ -88,7 +88,7 @@ function OnboardInner() {
         <div className="mt-6">
           <PersonForm locale={locale} value={value} onChange={setValue} extra />
         </div>
-        {error && <p className="mt-3 text-sm text-terracotta">{error}</p>}
+        {error && <p className="mt-3 text-sm text-danger">{error}</p>}
         <button className="btn-primary mt-6" disabled={busy || !value.givenName} onClick={submit}>
           {c.continue}
         </button>

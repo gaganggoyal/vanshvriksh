@@ -33,22 +33,20 @@ export function useCopy() {
 
 export function LangSwitch() {
   const { locale, setLocale } = useCopy();
+  const opt = (value: Locale, label: string, extra = "") => (
+    <button
+      type="button"
+      aria-pressed={locale === value}
+      onClick={() => setLocale(value)}
+      className={`rounded-md px-2.5 py-1 transition ${extra} ${locale === value ? "bg-white text-ink shadow-sm" : "text-ink/55 hover:text-ink"}`}
+    >
+      {label}
+    </button>
+  );
   return (
-    <div className="inline-flex rounded-full border border-gold/40 bg-paper/80 p-0.5 text-xs">
-      <button
-        className={`rounded-full px-3 py-1 ${locale === "en" ? "bg-maroon text-paper" : "text-maroon"}`}
-        onClick={() => setLocale("en")}
-        type="button"
-      >
-        EN
-      </button>
-      <button
-        className={`rounded-full px-3 py-1 font-devanagari ${locale === "hi" ? "bg-maroon text-paper" : "text-maroon"}`}
-        onClick={() => setLocale("hi")}
-        type="button"
-      >
-        हिं
-      </button>
+    <div className="inline-flex rounded-lg bg-ink/[0.06] p-0.5 text-xs font-semibold" role="group" aria-label="Language">
+      {opt("en", "EN")}
+      {opt("hi", "हिं", "font-devanagari")}
     </div>
   );
 }

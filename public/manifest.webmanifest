@@ -1,12 +1,12 @@
 {
-  "name": "वंश वृक्ष — Vansh Vriksh",
-  "short_name": "वंश वृक्ष",
-  "description": "A privacy-first family tree. Names on the canvas, dates kept private.",
+  "name": "Mera Vansh — Family Tree",
+  "short_name": "Mera Vansh",
+  "description": "Find the relatives your family never wrote down. A private family tree in English and हिन्दी.",
   "start_url": "/tree",
   "display": "standalone",
-  "background_color": "#F4EDE0",
-  "theme_color": "#6B1D2A",
-  "lang": "hi",
+  "background_color": "#F7F7FB",
+  "theme_color": "#5B4BF5",
+  "lang": "en",
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]

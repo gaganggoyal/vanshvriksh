@@ -13,6 +13,7 @@ const schema = z.object({ confirm: z.literal(true) });
 export async function DELETE(req: Request) {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+  if (user.tree?.isDemo) return NextResponse.json({ error: "Demo families can't be deleted." }, { status: 403 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Confirmation required." }, { status: 400 });
 

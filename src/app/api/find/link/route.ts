@@ -36,7 +36,12 @@ export async function POST(req: Request) {
   const body = parsed.data;
 
   const theirs = await prisma.person.findUnique({ where: { id: body.personId }, include: { tree: true } });
-  if (!theirs || theirs.treeId === user.tree.id || !visibleInSearch(theirs, theirs.tree.discoverable, body.birthYear)) {
+  if (
+    !theirs ||
+    theirs.treeId === user.tree.id ||
+    theirs.tree.isDemo !== user.tree.isDemo ||
+    !visibleInSearch(theirs, theirs.tree.discoverable, body.birthYear)
+  ) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

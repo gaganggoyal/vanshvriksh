@@ -14,11 +14,18 @@ import { displayName, initials, queryKeys } from "./names";
  * - No result ever carries a date.
  */
 
-export type SearchInput = { query: string; birthYear?: number | null; viewerTreeId?: string | null; limit?: number };
+export type SearchInput = {
+  query: string;
+  birthYear?: number | null;
+  viewerTreeId?: string | null;
+  /** Demo viewers search demo families only; everyone else never sees them. */
+  viewerIsDemo?: boolean;
+  limit?: number;
+};
 
 type Candidate = Awaited<ReturnType<typeof fetchCandidates>>[number];
 
-async function fetchCandidates(keys: string[], birthYear: number | null, viewerTreeId: string | null) {
+async function fetchCandidates(keys: string[], birthYear: number | null, viewerTreeId: string | null, isDemo = false) {
   const visibility = birthYear
     ? { OR: [{ isLiving: false }, { isLiving: true, birthYear: { in: [birthYear - 1, birthYear, birthYear + 1] } }] }
     : { isLiving: false };
@@ -27,7 +34,7 @@ async function fetchCandidates(keys: string[], birthYear: number | null, viewerT
       AND: [
         ...keys.map((k) => ({ searchKey: { contains: ` ${k}` } })),
         visibility,
-        { tree: { discoverable: true } },
+        { tree: { discoverable: true, isDemo } },
         viewerTreeId ? { treeId: { not: viewerTreeId } } : {},
       ],
     },
@@ -53,10 +60,10 @@ function relevance(p: Candidate, keys: string[]) {
   return exact;
 }
 
-export async function searchRelatives({ query, birthYear = null, viewerTreeId = null, limit = 30 }: SearchInput) {
+export async function searchRelatives({ query, birthYear = null, viewerTreeId = null, viewerIsDemo = false, limit = 30 }: SearchInput) {
   const keys = queryKeys(query).filter((k) => k.length >= 2);
   if (!keys.length) return [];
-  const rows = await fetchCandidates(keys, birthYear, viewerTreeId);
+  const rows = await fetchCandidates(keys, birthYear, viewerTreeId, viewerIsDemo);
   rows.sort((a, b) => relevance(b, keys) - relevance(a, keys) || Number(a.isLiving) - Number(b.isLiving));
   const top = rows.slice(0, limit);
   if (!top.length) return [];
@@ -151,8 +158,8 @@ export async function publicTeaser(query: string) {
 }
 
 /** Villages and gotras remembered across discoverable families, for browsing. */
-export async function commonPlaces(limit = 12) {
-  const where = { isLiving: false, tree: { discoverable: true } };
+export async function commonPlaces(limit = 12, isDemo = false) {
+  const where = { isLiving: false, tree: { discoverable: true, isDemo } };
   const [villages, gotras] = await Promise.all([
     prisma.person.groupBy({ by: ["village"], where: { ...where, village: { not: "" } }, _count: { _all: true } }),
     prisma.person.groupBy({ by: ["gotra"], where: { ...where, gotra: { not: "" } }, _count: { _all: true } }),
@@ -166,11 +173,13 @@ export async function commonPlaces(limit = 12) {
 }
 
 export async function siteStats() {
+  // Real families only — the demo is a showroom, not a number to boast.
+  const real = { tree: { isDemo: false } };
   const [families, people, remembered, linked] = await Promise.all([
-    prisma.tree.count(),
-    prisma.person.count(),
-    prisma.person.count({ where: { isLiving: false } }),
-    prisma.match.count({ where: { status: "CONFIRMED" } }),
+    prisma.tree.count({ where: { isDemo: false } }),
+    prisma.person.count({ where: real }),
+    prisma.person.count({ where: { ...real, isLiving: false } }),
+    prisma.match.count({ where: { status: "CONFIRMED", personA: real } }),
   ]);
   return { families, people, remembered, linked };
 }

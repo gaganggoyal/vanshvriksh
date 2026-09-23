@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   }
   const { who } = (await req.json().catch(() => ({}))) as { who?: string };
   const email =
-    who === "arjun" ? "arjun@vanshvriksh.app" : who === "mahesh" ? "mahesh@vanshvriksh.app" : "priya@vanshvriksh.app";
+    who === "arjun" ? "arjun@demo.meravansh.lol" : who === "mahesh" ? "mahesh@demo.meravansh.lol" : "priya@demo.meravansh.lol";
   const user = await prisma.user.findUnique({ where: { email }, include: { tree: true } });
   if (!user) {
     return NextResponse.json(

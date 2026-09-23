@@ -262,7 +262,7 @@ function orderedPair(a: string, b: string) {
  * same canonical given name, or same family name near the same birth year,
  * or the same birth year with a known name. Uses the (normalized*, birthYear) indexes.
  */
-async function candidatesFor(person: PersonRow) {
+async function candidatesFor(person: PersonRow, isDemo: boolean) {
   const year = person.birthYear;
   const years = year ? [year - 1, year, year + 1] : [];
   const or: object[] = [];
@@ -272,7 +272,8 @@ async function candidatesFor(person: PersonRow) {
   if (years.length) or.push({ birthYear: { in: years } });
   if (!or.length) return [];
   return prisma.person.findMany({
-    where: { treeId: { not: person.treeId }, OR: or },
+    // Demo families only ever meet other demo families.
+    where: { treeId: { not: person.treeId }, tree: { isDemo }, OR: or },
     take: 400,
   });
 }
@@ -280,10 +281,10 @@ async function candidatesFor(person: PersonRow) {
 export type NewMatch = { matchId: string; personId: string; otherPersonId: string; otherTreeId: string };
 
 export async function scanPersonMatches(personId: string): Promise<NewMatch[]> {
-  const person = await prisma.person.findUnique({ where: { id: personId } });
+  const person = await prisma.person.findUnique({ where: { id: personId }, include: { tree: { select: { isDemo: true } } } });
   if (!person) return [];
 
-  const candidates = await candidatesFor(person);
+  const candidates = await candidatesFor(person, person.tree.isDemo);
   const bundles = await relativesOfMany([person.id, ...candidates.map((c) => c.id)]);
   const relA = bundles.get(person.id)!;
 
@@ -356,7 +357,7 @@ export async function linkPersons(
     prisma.person.findUnique({ where: { id: aId }, include: { tree: true } }),
     prisma.person.findUnique({ where: { id: bId }, include: { tree: true } }),
   ]);
-  if (!a || !b || a.treeId === b.treeId) return null;
+  if (!a || !b || a.treeId === b.treeId || a.tree.isDemo !== b.tree.isDemo) return null;
   const [personAId, personBId] = orderedPair(a.id, b.id);
   const existing = await prisma.match.findUnique({ where: { personAId_personBId: { personAId, personBId } } });
   if (existing?.status === "DISMISSED") return { match: existing, dismissed: true as const };

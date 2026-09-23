@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { deliveryMode } from "@/lib/email";
+import { letterboxAllowed } from "@/lib/email";
 
 export async function GET(req: Request) {
-  if (deliveryMode() === "resend") {
+  if (!letterboxAllowed()) {
     return NextResponse.json({ error: "Letterbox is only for local delivery." }, { status: 404 });
   }
   const url = new URL(req.url);

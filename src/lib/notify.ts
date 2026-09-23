@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { deliverMail, kinFoundMail } from "./email";
+import { canSendSignIn, deliverMail, kinFoundMail } from "./email";
 import { displayName } from "./names";
 import type { NewMatch } from "./matching";
 
@@ -11,7 +11,7 @@ const QUIET_HOURS = 24;
  * a lost letter must not block the person being saved.
  */
 export async function notifyKinFound(found: NewMatch[]) {
-  if (process.env.VV_NO_NOTIFY === "1") return;
+  if (process.env.VV_NO_NOTIFY === "1" || !canSendSignIn()) return;
   const byTree = new Map<string, NewMatch>();
   for (const m of found) if (!byTree.has(m.otherTreeId)) byTree.set(m.otherTreeId, m);
   if (!byTree.size) return;
@@ -20,7 +20,7 @@ export async function notifyKinFound(found: NewMatch[]) {
   for (const [treeId, m] of byTree) {
     try {
       const tree = await prisma.tree.findUnique({ where: { id: treeId }, include: { user: true } });
-      if (!tree || (tree.user.kinNotifiedAt && tree.user.kinNotifiedAt > since)) continue;
+      if (!tree || tree.isDemo || (tree.user.kinNotifiedAt && tree.user.kinNotifiedAt > since)) continue;
       const theirPerson = await prisma.person.findUnique({ where: { id: m.otherPersonId } });
       if (!theirPerson) continue;
       await prisma.user.update({ where: { id: tree.userId }, data: { kinNotifiedAt: new Date() } });

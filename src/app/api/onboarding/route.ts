@@ -72,7 +72,7 @@ export async function POST(req: Request) {
   }
 
   const tree = await prisma.tree.create({
-    data: { userId: user.id, title: "वंश वृक्ष" },
+    data: { userId: user.id, title: `${parsed.data.familyName || parsed.data.givenName} family tree` },
   });
   const person = await createPerson(tree.id, parsed.data, true);
   await prisma.person.update({

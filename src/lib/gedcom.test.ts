@@ -46,7 +46,7 @@ const rels: Rel[] = [
 assert(gedcomDate("1995-03-12") === "12 MAR 1995", "ISO date → GEDCOM date");
 assert(gedcomDate(null) === null, "missing date stays empty");
 
-const ged = toGedcom(people, rels, { title: "शर्मा वंश वृक्ष", now: new Date("2026-09-13T00:00:00Z") });
+const ged = toGedcom(people, rels, { title: "Sharma family tree", now: new Date("2026-09-13T00:00:00Z") });
 const lines = ged.split("\r\n");
 
 assert(lines[0] === "0 HEAD" && lines.at(-2) === "0 TRLR", "HEAD … TRLR envelope");

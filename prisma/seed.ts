@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
-// Seeding builds three families at once; nobody should get "kin found" letters for it.
+// Seeding builds three demo families at once; nobody should get "kin found" letters for it.
+// Safe to re-run on a live database: only the demo accounts are rebuilt (nightly reset).
 process.env.VV_NO_NOTIFY = "1";
 import { addRelative, createPerson } from "../src/lib/people";
 import { scanTreeMatches } from "../src/lib/matching";
@@ -9,18 +10,16 @@ const prisma = new PrismaClient();
 
 async function familyPriya() {
   const user = await prisma.user.upsert({
-    where: { email: "priya@vanshvriksh.app" },
+    where: { email: "priya@demo.meravansh.lol" },
     update: { emailVerified: new Date(), locale: "en", kinNotifiedAt: null, invitePersonId: "" },
     create: {
-      email: "priya@vanshvriksh.app",
+      email: "priya@demo.meravansh.lol",
       emailVerified: new Date(),
       locale: "en",
     },
   });
   await prisma.tree.deleteMany({ where: { userId: user.id } });
-  const tree = await prisma.tree.create({
-    data: { userId: user.id, title: "शर्मा वंश वृक्ष" },
-  });
+  const tree = await prisma.tree.create({ data: { userId: user.id, title: "शर्मा वंश वृक्ष", isDemo: true } });
   const priya = await createPerson(
     tree.id,
     {
@@ -91,18 +90,16 @@ async function familyPriya() {
 
 async function familyArjun() {
   const user = await prisma.user.upsert({
-    where: { email: "arjun@vanshvriksh.app" },
+    where: { email: "arjun@demo.meravansh.lol" },
     update: { emailVerified: new Date(), locale: "hi", kinNotifiedAt: null, invitePersonId: "" },
     create: {
-      email: "arjun@vanshvriksh.app",
+      email: "arjun@demo.meravansh.lol",
       emailVerified: new Date(),
       locale: "hi",
     },
   });
   await prisma.tree.deleteMany({ where: { userId: user.id } });
-  const tree = await prisma.tree.create({
-    data: { userId: user.id, title: "वंश वृक्ष" },
-  });
+  const tree = await prisma.tree.create({ data: { userId: user.id, title: "वंश वृक्ष", isDemo: true } });
   const arjun = await createPerson(
     tree.id,
     {
@@ -181,12 +178,12 @@ async function familyArjun() {
 /** Priya's मामा — her mother's brother. His tree holds Priya's mother and her departed parents. */
 async function familyMahesh() {
   const user = await prisma.user.upsert({
-    where: { email: "mahesh@vanshvriksh.app" },
+    where: { email: "mahesh@demo.meravansh.lol" },
     update: { emailVerified: new Date(), locale: "hi", kinNotifiedAt: null, invitePersonId: "" },
-    create: { email: "mahesh@vanshvriksh.app", emailVerified: new Date(), locale: "hi" },
+    create: { email: "mahesh@demo.meravansh.lol", emailVerified: new Date(), locale: "hi" },
   });
   await prisma.tree.deleteMany({ where: { userId: user.id } });
-  const tree = await prisma.tree.create({ data: { userId: user.id, title: "तिवारी वंश वृक्ष" } });
+  const tree = await prisma.tree.create({ data: { userId: user.id, title: "तिवारी वंश वृक्ष", isDemo: true } });
   const mahesh = await createPerson(
     tree.id,
     {
@@ -267,7 +264,7 @@ async function main() {
   const c = await familyMahesh();
   for (const id of [a, b, c]) await scanTreeMatches(id);
   await prisma.user.updateMany({
-    where: { email: { in: ["priya@vanshvriksh.app", "arjun@vanshvriksh.app", "mahesh@vanshvriksh.app"] } },
+    where: { email: { in: ["priya@demo.meravansh.lol", "arjun@demo.meravansh.lol", "mahesh@demo.meravansh.lol"] } },
     data: { kinNotifiedAt: null },
   });
   const matches = await prisma.match.count({

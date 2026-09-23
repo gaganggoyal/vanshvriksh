@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Outfit, Noto_Sans_Devanagari } from "next/font/google";
+import { Bricolage_Grotesque, Plus_Jakarta_Sans, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
+import { BRAND, BRAND_TITLE } from "@/lib/brand";
 
-const display = Fraunces({
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",
 });
-const sans = Outfit({
+const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
 });
@@ -15,17 +16,30 @@ const deva = Noto_Sans_Devanagari({
   variable: "--font-deva",
 });
 
+const description =
+  "Find the relatives your family never wrote down. A private family tree that finds the same people in other families' trees — in English or हिन्दी — without ever showing a date of birth.";
+
 export const metadata: Metadata = {
-  title: "वंश वृक्ष — Vansh Vriksh",
-  description:
-    "A privacy-first family tree. Names on the canvas, dates of birth kept hidden and used only to recognise the same person across families.",
+  metadataBase: new URL(process.env.APP_URL || BRAND.url),
+  title: { default: `${BRAND_TITLE} · ${BRAND.nameHi}`, template: `%s · ${BRAND.name}` },
+  description,
+  applicationName: BRAND.name,
+  keywords: ["family tree", "vansh", "वंश", "genealogy", "find relatives", "Indian family tree", "kinship", "रिश्तेदार"],
   icons: { icon: "/favicon.svg" },
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "वंश वृक्ष", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: BRAND.name, statusBarStyle: "default" },
+  openGraph: {
+    type: "website",
+    siteName: BRAND.name,
+    title: BRAND_TITLE,
+    description,
+    url: "/",
+  },
+  twitter: { card: "summary_large_image", title: BRAND_TITLE, description },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6B1D2A",
+  themeColor: BRAND.themeColor,
   width: "device-width",
   initialScale: 1,
 };

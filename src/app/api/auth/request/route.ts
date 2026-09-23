@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { appUrlFromRequest, generateOtp, generateToken, hashToken, rateLimit } from "@/lib/auth";
-import { deliverMail, deliveryMode, magicMail, otpMail, withOrigin } from "@/lib/email";
+import { canSendSignIn, deliverMail, emailReady, letterboxAllowed, magicMail, otpMail, withOrigin } from "@/lib/email";
 
 const schema = z.object({
   email: z.string().email().transform((e) => e.trim().toLowerCase()),
   method: z.enum(["otp", "link", "both"]).default("otp"),
+  /** "register" only changes the greeting; sign-up and sign-in are the same passwordless step. */
+  intent: z.enum(["signin", "register"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -16,7 +18,14 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Enter a valid email." }, { status: 400 });
   }
-  const { email, method } = parsed.data;
+  const { email, method, intent } = parsed.data;
+
+  if (!canSendSignIn()) {
+    return NextResponse.json(
+      { error: "Email sign-in is being set up. Please try again soon — or walk a demo family meanwhile." },
+      { status: 503 },
+    );
+  }
 
   if (!rateLimit(`auth-ip:${ip}`, 30, 10 * 60 * 1000).ok || !rateLimit(`auth:${ip}:${email}`, 6, 10 * 60 * 1000).ok) {
     return NextResponse.json(
@@ -40,7 +49,7 @@ export async function POST(req: Request) {
         previewToken,
       },
     });
-    await withOrigin(appUrlFromRequest(req), () => deliverMail(otpMail(email, otp, previewToken)));
+    await withOrigin(appUrlFromRequest(req), () => deliverMail(otpMail(email, otp, previewToken, intent === "register")));
   }
 
   if (method === "link" || method === "both") {
@@ -60,7 +69,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     sent,
-    delivery: deliveryMode() === "resend" ? "email" : "letterbox",
-    previewToken: deliveryMode() === "resend" ? undefined : previewToken,
+    delivery: emailReady() ? "email" : "letterbox",
+    previewToken: letterboxAllowed() ? previewToken : undefined,
   });
 }

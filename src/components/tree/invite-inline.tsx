@@ -35,7 +35,7 @@ export function InviteInline({ personId, name }: { personId: string; name: strin
   return (
     <div className="mt-3">
       {!open && (
-        <button type="button" className="text-sm text-maroon underline underline-offset-4" onClick={() => setOpen(true)}>
+        <button type="button" className="text-sm text-brand underline underline-offset-4" onClick={() => setOpen(true)}>
           ✉ {fill(c.inviteThem, { name })}
         </button>
       )}
@@ -55,9 +55,9 @@ export function InviteInline({ personId, name }: { personId: string; name: strin
           </button>
         </div>
       )}
-      {note && <p className="mt-2 text-xs text-leaf">{note}</p>}
+      {note && <p className="mt-2 text-xs text-grow">{note}</p>}
       {preview && (
-        <a className="text-xs text-maroon underline" href={`/verify?delivery=letterbox&preview=${preview}&sent=link`}>
+        <a className="text-xs text-brand underline" href={`/verify?delivery=letterbox&preview=${preview}&sent=link`}>
           {c.letterbox}
         </a>
       )}

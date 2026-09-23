@@ -90,8 +90,8 @@ export function toGedcom(people: GedcomPerson[], rels: Rel[], opts: { title?: st
 
   const out: string[] = [];
   out.push("0 HEAD");
-  out.push("1 SOUR VanshVriksh");
-  out.push("2 NAME वंश वृक्ष — Vansh Vriksh");
+  out.push("1 SOUR MeraVansh");
+  out.push("2 NAME Mera Vansh — Family Tree");
   out.push("2 VERS 1.0");
   out.push("1 DEST ANY");
   out.push(`1 DATE ${gedcomDate(now.toISOString().slice(0, 10))}`);

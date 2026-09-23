@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   if (format === "json") {
     const body = {
       exportedAt: new Date().toISOString(),
-      app: "Vansh Vriksh",
+      app: "Mera Vansh",
       tree: { id: user.tree.id, title: user.tree.title },
       people: people.map(ownerPerson),
       relationships: rels.map((r) => ({ type: r.type, fromId: r.fromId, toId: r.toId })),
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     return new NextResponse(JSON.stringify(body, null, 2), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="vansh-vriksh-${stamp}.json"`,
+        "Content-Disposition": `attachment; filename="mera-vansh-${stamp}.json"`,
         "Cache-Control": "no-store",
       },
     });
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   return new NextResponse(ged, {
     headers: {
       "Content-Type": "text/x-gedcom; charset=utf-8",
-      "Content-Disposition": `attachment; filename="vansh-vriksh-${stamp}.ged"`,
+      "Content-Disposition": `attachment; filename="mera-vansh-${stamp}.ged"`,
       "Cache-Control": "no-store",
     },
   });
