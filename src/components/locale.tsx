@@ -38,7 +38,7 @@ export function LangSwitch() {
       type="button"
       aria-pressed={locale === value}
       onClick={() => setLocale(value)}
-      className={`rounded-md px-2.5 py-1 transition ${extra} ${locale === value ? "bg-white text-ink shadow-sm" : "text-ink/55 hover:text-ink"}`}
+      className={`rounded-md px-2 py-1 transition sm:px-2.5 ${extra} ${locale === value ? "bg-white text-ink shadow-sm" : "text-ink/55 hover:text-ink"}`}
     >
       {label}
     </button>

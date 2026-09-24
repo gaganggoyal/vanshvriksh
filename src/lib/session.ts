@@ -6,6 +6,8 @@ export const COOKIE = "vv_session";
 export type Session = {
   userId: string;
   email: string;
+  /** User.sessionVersion when signed; a password change bumps it and older sessions end. */
+  v: number;
 };
 
 const secret = () => {
@@ -27,7 +29,7 @@ export async function readSessionToken(token?: string | null): Promise<Session |
   try {
     const { payload } = await jwtVerify(token, secret());
     if (typeof payload.userId !== "string" || typeof payload.email !== "string") return null;
-    return { userId: payload.userId, email: payload.email };
+    return { userId: payload.userId, email: payload.email, v: typeof payload.v === "number" ? payload.v : 0 };
   } catch {
     return null;
   }

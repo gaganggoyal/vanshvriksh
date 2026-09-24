@@ -1,33 +1,24 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { hashToken, setSessionCookie, appUrlFromRequest } from "@/lib/auth";
+import { startSession } from "@/lib/auth";
+import { consume, findByToken } from "@/lib/challenges";
 import { linkPersons } from "@/lib/matching";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const token = url.searchParams.get("token") || "";
-  const origin = appUrlFromRequest(req);
-  if (!token) {
-    return NextResponse.redirect(`${origin}/login?error=invalid`);
+const schema = z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) });
+
+/**
+ * The emailed button opens /auth/magic, which posts the token here. A POST —
+ * not a GET — so mail scanners that pre-open links don't spend the letter.
+ */
+export async function POST(req: Request) {
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
+
+  const challenge = await findByToken(parsed.data.token, ["signin", "signup", "invite"]);
+  if (!challenge || !(await consume(challenge.id))) {
+    return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
-
-  const challenge = await prisma.authChallenge.findFirst({
-    where: {
-      type: "MAGIC",
-      tokenHash: hashToken(token),
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-  });
-
-  if (!challenge) {
-    return NextResponse.redirect(`${origin}/login?error=invalid`);
-  }
-
-  await prisma.authChallenge.update({
-    where: { id: challenge.id },
-    data: { consumedAt: new Date() },
-  });
 
   const user = await prisma.user.upsert({
     where: { email: challenge.email },
@@ -35,7 +26,11 @@ export async function GET(req: Request) {
     create: { email: challenge.email, emailVerified: new Date() },
     include: { tree: true },
   });
-  await setSessionCookie({ userId: user.id, email: user.email });
+  await startSession(user);
+
+  const firstVisit = !user.passwordHash && !user.tree;
+  const go = (path: string) =>
+    NextResponse.json({ ok: true, redirect: firstVisit ? `/welcome?next=${encodeURIComponent(path)}` : path });
 
   // An invitation that names a person: link on arrival (or on onboarding for a new family).
   if (challenge.invitePersonId) {
@@ -46,7 +41,7 @@ export async function GET(req: Request) {
     if (invited && invited.tree.userId !== user.id) {
       if (!user.tree) {
         await prisma.user.update({ where: { id: user.id }, data: { invitePersonId: invited.id } });
-        return NextResponse.redirect(`${origin}/onboarding`);
+        return go("/onboarding");
       }
       const root = await prisma.person.findFirst({ where: { treeId: user.tree.id, isRoot: true } });
       if (root) {
@@ -55,10 +50,10 @@ export async function GET(req: Request) {
           source: "invite",
           reason: "Invited as this person",
         });
-        return NextResponse.redirect(`${origin}/matches`);
+        return go("/matches");
       }
     }
   }
 
-  return NextResponse.redirect(`${origin}${user.tree ? "/tree" : "/onboarding"}`);
+  return go(user.tree ? "/tree" : "/onboarding");
 }

@@ -5,45 +5,70 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MailCheck } from "lucide-react";
 import { useCopy } from "@/components/locale";
+import { Letterbox } from "@/components/site/letterbox";
 import { PublicPage } from "@/components/site/public-page";
+import { fill } from "@/lib/i18n";
+
+const RESEND_AFTER = 30;
 
 function VerifyInner() {
-  const { c } = useCopy();
+  const { c, locale } = useCopy();
   const router = useRouter();
   const params = useSearchParams();
   const email = params.get("email") || "";
-  const sent = params.get("sent") || "otp";
+  const intent = params.get("intent") === "signup" ? "signup" : "signin";
   const delivery = params.get("delivery") || "letterbox";
-  const preview = params.get("preview") || "";
   const nextRaw = params.get("next") || "";
   const next = /^\/(?![\/\\])/.test(nextRaw) ? nextRaw : "/tree";
+  const [preview, setPreview] = useState(params.get("preview") || "");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [letters, setLetters] = useState<{ subject: string; html: string; text: string }[]>([]);
-  const [open, setOpen] = useState(delivery === "letterbox");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [wait, setWait] = useState(RESEND_AFTER);
+  const [sentCount, setSentCount] = useState(0);
 
   useEffect(() => {
-    if (!preview) return;
-    fetch(`/api/auth/letterbox?token=${preview}`)
-      .then((r) => r.json())
-      .then((d) => setLetters(d.emails || []));
-  }, [preview]);
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
 
-  const msg = sent === "link" ? c.sentLink : sent === "both" ? c.sentBoth : c.sentCode;
-
-  async function verify() {
+  async function verify(value: string) {
+    setBusy(true);
     setError("");
     const res = await fetch("/api/auth/verify-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ email, code: value }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      setBusy(false);
       setError(data.error || c.invalid);
       return;
     }
-    router.push(data.needsOnboarding ? "/onboarding" : next);
+    const dest = data.needsOnboarding ? "/onboarding" : next;
+    router.push(data.needsPassword ? `/welcome?next=${encodeURIComponent(dest)}` : dest);
+  }
+
+  async function resend() {
+    setError("");
+    setNote("");
+    const res = await fetch("/api/auth/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, intent, locale }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Could not send the email. Please try again.");
+      return;
+    }
+    setNote(c.resent);
+    setWait(RESEND_AFTER);
+    if (data.previewToken) setPreview(data.previewToken);
+    setSentCount((n) => n + 1);
   }
 
   return (
@@ -53,67 +78,64 @@ function VerifyInner() {
           <MailCheck className="h-6 w-6" />
         </span>
         <h1 className="mt-5 font-display text-3xl font-bold tracking-tight">{c.checkMail}</h1>
-        <p className="mt-2 text-sm text-ink/70">{msg}</p>
-        <p className="mt-1 text-sm font-semibold">{email}</p>
-        {sent !== "link" && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (code.length === 6) void verify();
-            }}
+        <p className="mt-2 text-sm text-ink/70">{intent === "signup" ? c.sentSignup : c.sentSignin}</p>
+        <p className="mt-1 break-all text-sm font-semibold">{email}</p>
+        <p className="mt-3 text-sm text-ink/70">{c.orClickEmail}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (code.length === 6) void verify(code);
+          }}
+        >
+          <label className="mt-6 block">
+            <span className="field-label">{c.code}</span>
+            <input
+              className="field !py-3.5 text-center font-display !text-2xl font-bold tracking-[0.5em]"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              disabled={busy}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setCode(v);
+                // Typed or pasted the sixth digit: no need to press the button.
+                if (v.length === 6 && !busy) void verify(v);
+              }}
+              autoFocus
+            />
+          </label>
+          {error && (
+            <p className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+              {error}
+            </p>
+          )}
+          {note && !error && (
+            <p className="mt-3 rounded-xl bg-grow/10 px-3 py-2 text-sm text-grow" role="status">
+              {note}
+            </p>
+          )}
+          <button className="btn-primary mt-5 w-full !py-3" disabled={busy || code.length !== 6}>
+            {c.verify}
+          </button>
+        </form>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <button
+            type="button"
+            className="font-medium text-brand hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline"
+            disabled={wait > 0}
+            onClick={resend}
           >
-            <label className="mt-6 block">
-              <span className="field-label">{c.code}</span>
-              <input
-                className="field !py-3.5 text-center font-display !text-2xl font-bold tracking-[0.5em]"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                autoFocus
-              />
-            </label>
-            {error && (
-              <p className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
-                {error}
-              </p>
-            )}
-            <button className="btn-primary mt-5 w-full !py-3" disabled={code.length !== 6}>
-              {c.verify}
-            </button>
-          </form>
-        )}
-        <p className="mt-5 text-xs text-muted">
-          <Link href="/login" className="font-medium text-brand hover:underline">
-            ← {c.signIn}
+            {wait > 0 ? fill(c.resendIn, { s: wait }) : c.resend}
+          </button>
+          <Link href={intent === "signup" ? "/register" : "/login"} className="text-muted hover:text-ink">
+            {c.wrongEmail}
           </Link>
-        </p>
-        {sent === "link" && (
-          <p className="mt-4 text-sm text-ink/70">Open the link in your letter. It can be used once.</p>
-        )}
+        </div>
+        <p className="mt-4 text-xs text-muted">{c.checkSpam}</p>
       </div>
 
-      {delivery === "letterbox" && (
-        <div className="mt-6">
-          <button className="btn-ghost" onClick={() => setOpen((v) => !v)}>
-            {c.letterbox}
-          </button>
-          {open && (
-            <div className="mt-4 space-y-4">
-              {letters.map((l, i) => (
-                <article key={i} className="overflow-hidden rounded-2xl border border-line/30 bg-surface">
-                  <div className="border-b border-line/20 px-4 py-2 text-xs text-muted">{l.subject}</div>
-                  <div className="max-h-80 overflow-auto p-2" dangerouslySetInnerHTML={{ __html: l.html }} />
-                </article>
-              ))}
-              {!letters.length && (
-                <p className="text-sm text-ink/60">The letterbox is empty. Request a code again.</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {delivery === "letterbox" && <Letterbox preview={preview} refresh={sentCount} />}
     </div>
   );
 }

@@ -6,7 +6,10 @@
  *   npm run email:test -- you@example.com
  */
 import { prisma } from "../src/lib/db";
-import { deliverMail, deliveryMode, emailReady, testMail } from "../src/lib/email";
+import { appUrl } from "../src/lib/auth";
+import { BRAND } from "../src/lib/brand";
+import { deliverMail, deliveryMode, emailReady } from "../src/lib/email";
+import { testMail } from "../src/lib/mail-templates";
 
 async function main() {
   const to = process.argv[2]?.trim();
@@ -24,7 +27,7 @@ async function main() {
     return;
   }
   try {
-    await deliverMail(testMail(to));
+    await deliverMail(testMail({ to, mode: deliveryMode(), from: process.env.EMAIL_FROM || BRAND.from, origin: appUrl() }));
     console.log(`Sent through ${deliveryMode()} to ${to}. Check the inbox, and the spam folder the first time.`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

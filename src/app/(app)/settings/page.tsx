@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCopy } from "@/components/locale";
+import { PasswordField } from "@/components/site/password-field";
 import { kinshipMap } from "@/lib/kinship";
 import type { Rel } from "@/lib/graph";
 
@@ -20,12 +21,20 @@ export default function SettingsPage() {
   const [rels, setRels] = useState<Rel[]>([]);
   const [rootId, setRootId] = useState<string | null>(null);
   const [invitePersonId, setInvitePersonId] = useState("");
+  const [account, setAccount] = useState<{ hasPassword: boolean; notifyMatches: boolean; isDemo: boolean } | null>(null);
+  const [current, setCurrent] = useState("");
+  const [nextPw, setNextPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwNote, setPwNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
       void fetch("/api/settings")
         .then((r) => r.json())
-        .then((d) => setDiscoverable(d.discoverable ?? true));
+        .then((d) => {
+          setDiscoverable(d.discoverable ?? true);
+          setAccount({ hasPassword: Boolean(d.hasPassword), notifyMatches: d.notifyMatches ?? true, isDemo: Boolean(d.isDemo) });
+        });
       void fetch("/api/tree")
         .then((r) => r.json())
         .then((d) => {
@@ -47,6 +56,37 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ discoverable: next }),
     });
+  }
+
+  async function saveNotify(next: boolean) {
+    setAccount((a) => (a ? { ...a, notifyMatches: next } : a));
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notifyMatches: next }),
+    });
+  }
+
+  async function savePassword() {
+    if (nextPw !== confirmPw) {
+      setPwNote({ ok: false, text: c.passwordMismatch });
+      return;
+    }
+    const res = await fetch("/api/auth/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: nextPw, currentPassword: current || undefined }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setPwNote({ ok: false, text: data.error || "Could not save the password." });
+      return;
+    }
+    setPwNote({ ok: true, text: c.passwordSaved });
+    setAccount((a) => (a ? { ...a, hasPassword: true } : a));
+    setCurrent("");
+    setNextPw("");
+    setConfirmPw("");
   }
 
   async function saveLocale(next: "en" | "hi") {
@@ -101,6 +141,65 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {account && !account.isDemo && (
+        <section className="card mt-6 rounded-3xl p-6">
+          <p className="font-display text-xl font-bold tracking-tight text-ink">{c.passwordTitle}</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink/70">
+            {account.hasPassword ? c.passwordChangeHint : c.passwordSetHint}
+          </p>
+          <form
+            className="mt-4 grid gap-4 sm:max-w-sm"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void savePassword();
+            }}
+          >
+            {account.hasPassword && (
+              <PasswordField label={c.passwordCurrent} value={current} onChange={setCurrent} autoComplete="current-password" />
+            )}
+            <PasswordField label={c.passwordNew} value={nextPw} onChange={setNextPw} autoComplete="new-password" meter />
+            <PasswordField label={c.passwordConfirm} value={confirmPw} onChange={setConfirmPw} autoComplete="new-password" />
+            {pwNote && (
+              <p className={`text-sm ${pwNote.ok ? "text-grow" : "text-danger"}`} role={pwNote.ok ? "status" : "alert"}>
+                {pwNote.text}
+              </p>
+            )}
+            <button
+              className="btn-primary justify-self-start"
+              disabled={nextPw.length < 8 || !confirmPw || (account.hasPassword && !current)}
+            >
+              {account.hasPassword ? c.changePassword : c.setPassword}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {account && !account.isDemo && (
+        <section className="card mt-6 rounded-3xl p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-display text-xl font-bold tracking-tight text-ink">{c.alertsTitle}</p>
+              <p className="mt-2 text-sm leading-relaxed text-ink/70">{c.alertsHint}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={account.notifyMatches}
+              aria-label={c.alertsTitle}
+              onClick={() => saveNotify(!account.notifyMatches)}
+              className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition ${account.notifyMatches ? "bg-grow" : "bg-line/40"}`}
+            >
+              <span
+                className={`absolute top-1 h-5 w-5 rounded-full bg-surface shadow transition-all ${account.notifyMatches ? "left-6" : "left-1"}`}
+              />
+            </button>
+          </div>
+          <p className={`mt-3 text-xs ${account.notifyMatches ? "text-grow" : "text-muted"}`}>
+            {account.notifyMatches ? c.alertsOn : c.alertsOff}
+          </p>
+        </section>
+      )}
 
       <section className="card mt-6 rounded-3xl p-6">
         <p className="font-display text-xl font-bold tracking-tight text-ink">{c.invite}</p>

@@ -5,9 +5,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { publicPerson } from "@/lib/privacy";
 import { publicReasons, sharedNames, type MatchReason } from "@/lib/matching";
-import { displayName } from "@/lib/names";
-import { buildGraph } from "@/lib/graph";
 import { bridgeBetween } from "@/lib/family";
+import { neighbours } from "@/lib/neighbours";
 
 export async function GET() {
   const user = await requireUser();
@@ -82,24 +81,4 @@ export async function GET() {
   const order: Record<string, number> = { PENDING: 0, CONFIRMED: 1, DISMISSED: 2 };
   payload.sort((a, b) => order[a.status] - order[b.status] || b.score - a.score);
   return NextResponse.json({ matches: payload });
-}
-
-async function neighbours(personId: string) {
-  const empty = { all: [] as string[], groups: { parents: [] as string[], spouses: [] as string[], children: [] as string[] } };
-  const person = await prisma.person.findUnique({ where: { id: personId } });
-  if (!person) return empty;
-  const people = await prisma.person.findMany({ where: { treeId: person.treeId } });
-  const rels = await prisma.relationship.findMany({ where: { treeId: person.treeId } });
-  const g = buildGraph(
-    people.map((p) => p.id),
-    rels,
-  );
-  const byId = new Map(people.map((p) => [p.id, p]));
-  const names = (ids: string[]) => ids.map((id) => byId.get(id)).filter(Boolean).map((p) => displayName(p!));
-  const groups = {
-    parents: names(g.parents[personId] ?? []),
-    spouses: names(g.spouses[personId] ?? []),
-    children: names(g.children[personId] ?? []),
-  };
-  return { all: [...groups.parents, ...groups.spouses, ...groups.children], groups };
 }

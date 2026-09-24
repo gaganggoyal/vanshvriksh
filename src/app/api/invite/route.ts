@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { appUrlFromRequest, generateToken, hashToken, rateLimit, requireUser } from "@/lib/auth";
-import { canSendSignIn, deliverMail, emailReady, inviteMail, letterboxAllowed, withOrigin } from "@/lib/email";
+import { appUrlFromRequest, rateLimit, requireUser } from "@/lib/auth";
+import { issueChallenge } from "@/lib/challenges";
+import { canSendSignIn, deliverMail, emailReady, letterboxAllowed } from "@/lib/email";
+import { inviteMail } from "@/lib/mail-templates";
 import { kinship } from "@/lib/kinship";
 import { displayName } from "@/lib/names";
 
@@ -46,24 +48,27 @@ export async function POST(req: Request) {
     invitePersonId = person.id;
   }
 
-  const token = generateToken();
-  const previewToken = generateToken();
-  await prisma.authChallenge.create({
-    data: {
-      email: parsed.data.email,
-      type: "MAGIC",
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      previewToken,
-      invitePersonId,
-    },
-  });
-  await withOrigin(appUrlFromRequest(req), () =>
-    deliverMail(inviteMail(parsed.data.email, fromName, token, previewToken, invitee)),
-  );
+  const ch = await issueChallenge(parsed.data.email, "invite", { withCode: false, invitePersonId });
+  const origin = appUrlFromRequest(req);
+  try {
+    await deliverMail(
+      inviteMail({
+        to: parsed.data.email,
+        fromName,
+        link: `${origin}/auth/magic?token=${ch.token}&invite=1`,
+        invitee,
+        origin,
+        locale: user.locale === "hi" ? "hi" : "en",
+        previewToken: ch.previewToken,
+      }),
+    );
+  } catch (err) {
+    console.error("[invite] email failed:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "We couldn't send the invitation just now. Please try again in a minute." }, { status: 502 });
+  }
   return NextResponse.json({
     ok: true,
     delivery: emailReady() ? "email" : "letterbox",
-    previewToken: letterboxAllowed() ? previewToken : undefined,
+    previewToken: letterboxAllowed() ? ch.previewToken : undefined,
   });
 }

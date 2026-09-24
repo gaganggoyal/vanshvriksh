@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, Link2, Mail, Sparkles } from "lucide-react";
+import { ArrowRight, Check, LogIn, Mail, Sparkles } from "lucide-react";
 import { useCopy } from "@/components/locale";
+import { PasswordField } from "./password-field";
 
 type Mode = "signin" | "register";
 
@@ -27,21 +28,25 @@ function QueryState({ onError, onNext }: { onError: (msg: string) => void; onNex
 }
 
 export function AuthForm({ mode, demo }: { mode: Mode; demo: boolean }) {
-  const { c } = useCopy();
+  const { c, locale } = useCopy();
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [hint, setHint] = useState(false);
   const [next, setNext] = useState("");
   const register = mode === "register";
 
-  async function send(method: "otp" | "link") {
+  /** One email carries a 6-digit code and a one-click button; /verify takes the code. */
+  async function requestCode(intent: "signin" | "signup") {
     setBusy(true);
     setError("");
+    setHint(false);
     const res = await fetch("/api/auth/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, method, intent: mode }),
+      body: JSON.stringify({ email, intent, locale }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -49,10 +54,29 @@ export function AuthForm({ mode, demo }: { mode: Mode; demo: boolean }) {
       setError(data.error || "Could not send the email. Please try again.");
       return;
     }
-    const q = new URLSearchParams({ email, sent: method, delivery: data.delivery });
+    const q = new URLSearchParams({ email, intent, delivery: data.delivery });
     if (data.previewToken) q.set("preview", data.previewToken);
     if (next) q.set("next", next);
     router.push(`/verify?${q.toString()}`);
+  }
+
+  async function signInWithPassword() {
+    setBusy(true);
+    setError("");
+    setHint(false);
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error || "Email or password is incorrect.");
+      setHint(res.status === 401);
+      return;
+    }
+    router.push(data.needsOnboarding ? "/onboarding" : next || "/tree");
   }
 
   async function tryDemo(who: "priya" | "arjun" | "mahesh") {
@@ -70,6 +94,13 @@ export function AuthForm({ mode, demo }: { mode: Mode; demo: boolean }) {
     }
     router.push(data.needsOnboarding ? "/onboarding" : next || "/tree");
   }
+
+  const errorBox = error && (
+    <div className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+      <p>{error}</p>
+      {hint && <p className="mt-1 text-xs text-danger/80">{c.loginHint}</p>}
+    </div>
+  );
 
   return (
     <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:py-20">
@@ -100,40 +131,95 @@ export function AuthForm({ mode, demo }: { mode: Mode; demo: boolean }) {
         <div className="card rounded-3xl p-7 sm:p-8">
           <h1 className="font-display text-3xl font-bold tracking-tight">{register ? c.registerTitle : c.signInTitle}</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">{register ? c.registerBody : c.signInBody}</p>
-          <form
-            className="mt-6"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (email) void send("otp");
-            }}
-          >
-            <label className="block">
-              <span className="field-label">{c.email}</span>
-              <input
-                className="field !py-3"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@family.com"
-                required
+          {register ? (
+            <form
+              className="mt-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (email) void requestCode("signup");
+              }}
+            >
+              <ol className="mb-6 grid grid-cols-3 gap-2 text-[11px] font-medium text-muted">
+                {[c.regStep1, c.regStep2, c.regStep3].map((label, i) => (
+                  <li key={label} className="flex flex-col gap-1.5">
+                    <span className={`h-1 rounded-full ${i === 0 ? "bg-brand" : "bg-ink/10"}`} />
+                    <span className={i === 0 ? "text-ink" : ""}>
+                      {i + 1}. {label}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <label className="block">
+                <span className="field-label">{c.email}</span>
+                <input
+                  className="field !py-3"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@family.com"
+                  required
+                />
+              </label>
+              {errorBox}
+              <button className="btn-primary mt-5 w-full !py-3" disabled={busy || !email}>
+                <Mail className="h-4 w-4" /> {c.continueEmail}
+              </button>
+            </form>
+          ) : (
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (email && password) void signInWithPassword();
+              }}
+            >
+              <label className="block">
+                <span className="field-label">{c.email}</span>
+                <input
+                  className="field !py-3"
+                  type="email"
+                  autoComplete="username"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@family.com"
+                  required
+                />
+              </label>
+              <PasswordField
+                label={c.password}
+                value={password}
+                onChange={setPassword}
+                action={
+                  <Link
+                    href={`/forgot${email ? `?email=${encodeURIComponent(email)}` : ""}`}
+                    className="text-xs font-semibold text-brand hover:underline"
+                  >
+                    {c.forgotPassword}
+                  </Link>
+                }
               />
-            </label>
-            {error && (
-              <p className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
-                {error}
-              </p>
-            )}
-            <div className="mt-5 flex flex-col gap-2">
-              <button className="btn-primary !py-3" disabled={busy || !email}>
-                <Mail className="h-4 w-4" /> {c.sendCode}
+              {errorBox}
+              <button className="btn-primary w-full !py-3" disabled={busy || !email || !password}>
+                <LogIn className="h-4 w-4" /> {c.signIn}
               </button>
-              <button type="button" className="btn-ghost !py-3" disabled={busy || !email} onClick={() => send("link")}>
-                <Link2 className="h-4 w-4" /> {c.sendLink}
+              <div className="flex items-center gap-3 text-xs text-muted">
+                <span className="h-px flex-1 bg-ink/10" />
+                {c.orWord}
+                <span className="h-px flex-1 bg-ink/10" />
+              </div>
+              <button
+                type="button"
+                className="btn-ghost w-full !py-3"
+                disabled={busy || !email}
+                onClick={() => requestCode("signin")}
+              >
+                <Mail className="h-4 w-4" /> {c.emailCodeInstead}
               </button>
-            </div>
-          </form>
+            </form>
+          )}
           <p className="mt-5 text-xs leading-relaxed text-muted">
             {c.agreePrefix}{" "}
             <Link href="/terms" className="font-medium text-ink underline underline-offset-2">

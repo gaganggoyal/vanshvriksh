@@ -24,6 +24,7 @@ export async function GET() {
       email: user.email,
       locale: user.locale,
       hasTree: Boolean(user.tree),
+      hasPassword: Boolean(user.passwordHash),
       pendingMatches: pending,
     },
   });

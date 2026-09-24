@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCopy } from "@/components/locale";
 import { fill, type Copy } from "@/lib/i18n";
 
@@ -27,8 +28,27 @@ function reasonText(c: Copy, r: { code: string; label: string }) {
   return (c[key] as string | undefined) ?? r.label;
 }
 
+type Focus = { id: string; action: "confirm" | "dismiss" | null } | null;
+
 export default function MatchesPage() {
+  return (
+    <Suspense>
+      <MatchesInner />
+    </Suspense>
+  );
+}
+
+/** A relative alert links here with ?focus=<match>&action=confirm|dismiss; the answer still takes one tap here. */
+function useFocus(): Focus {
+  const params = useSearchParams();
+  const id = params.get("focus");
+  const action = params.get("action");
+  return id ? { id, action: action === "confirm" || action === "dismiss" ? action : null } : null;
+}
+
+function MatchesInner() {
   const { c } = useCopy();
+  const focus = useFocus();
   const [rows, setRows] = useState<MatchRow[] | null>(null);
   const [msg, setMsg] = useState("");
 
@@ -53,6 +73,12 @@ export default function MatchesPage() {
     await load();
   }
 
+  const focusId = focus?.id;
+  useEffect(() => {
+    if (!rows || !focusId) return;
+    document.getElementById(`match-${focusId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [rows, focusId]);
+
   const pending = rows?.filter((m) => m.status === "PENDING") ?? [];
   const rest = rows?.filter((m) => m.status !== "PENDING") ?? [];
 
@@ -70,7 +96,7 @@ export default function MatchesPage() {
 
       <div className="mt-8 space-y-5">
         {[...pending, ...rest].map((m) => (
-          <MatchCard key={m.id} m={m} c={c} onAct={act} />
+          <MatchCard key={m.id} m={m} c={c} onAct={act} focus={focus?.id === m.id ? focus : null} />
         ))}
         {rows && !rows.length && (
           <div className="rounded-3xl border border-dashed border-line/40 p-8 text-center">
@@ -103,10 +129,24 @@ function WithTerm({ text, term }: { text: string; term: React.ReactNode }) {
   );
 }
 
-function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, a: "confirm" | "dismiss") => void }) {
+function MatchCard({
+  m,
+  c,
+  onAct,
+  focus,
+}: {
+  m: MatchRow;
+  c: Copy;
+  onAct: (id: string, a: "confirm" | "dismiss") => void;
+  focus: Focus;
+}) {
   const b = m.bridge;
+  const asked = focus?.action && m.status === "PENDING" && !m.confirmedByMe ? focus.action : null;
   return (
-    <article className={`card rounded-3xl p-6 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+    <article
+      id={`match-${m.id}`}
+      className={`card scroll-mt-24 rounded-3xl p-6 ${m.status === "DISMISSED" ? "opacity-60" : ""} ${focus ? "ring-2 ring-brand/40" : ""}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-line/20 px-3 py-1 text-[11px] uppercase tracking-wider text-muted">
@@ -207,12 +247,17 @@ function MatchCard({ m, c, onAct }: { m: MatchRow; c: Copy; onAct: (id: string, 
         <p className="mt-3 text-sm text-grow">{c.theyConfirmed}</p>
       )}
       {m.status === "PENDING" && m.confirmedByMe && <p className="mt-3 text-sm text-muted">{c.youConfirmed}</p>}
+      {asked && (
+        <p className="mt-5 rounded-2xl bg-brand-tint px-4 py-3 text-sm text-brand-deep" role="status">
+          {asked === "confirm" ? c.fromEmailConfirm : c.fromEmailDismiss}
+        </p>
+      )}
       {m.status === "PENDING" && !m.confirmedByMe && (
         <div className="mt-5 flex flex-wrap gap-2">
-          <button className="btn-primary" onClick={() => onAct(m.id, "confirm")}>
+          <button className={asked === "dismiss" ? "btn-ghost" : "btn-primary"} onClick={() => onAct(m.id, "confirm")}>
             {c.confirmMatch}
           </button>
-          <button className="btn-ghost" onClick={() => onAct(m.id, "dismiss")}>
+          <button className={asked === "dismiss" ? "btn-primary" : "btn-ghost"} onClick={() => onAct(m.id, "dismiss")}>
             {c.dismissMatch}
           </button>
         </div>

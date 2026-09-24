@@ -16,7 +16,7 @@ export default function TermsPage() {
     <PublicPage>
       <Legal
         title="Terms of service"
-        updated="23 September 2026"
+        updated="24 September 2026"
         intro={
           <p>
             These terms apply when you use {BRAND.name} at {BRAND.domain}. By creating an account or using the service you
@@ -31,7 +31,10 @@ export default function TermsPage() {
             body: (
               <ul>
                 <li>You must be 18 or older to create an account.</li>
-                <li>You sign in with a code or link sent to your email, so keep access to that email secure. You are responsible for activity on your account.</li>
+                <li>
+                  You sign in with a password or with a code or link sent to your email, so keep your password and that email
+                  secure. You are responsible for activity on your account.
+                </li>
                 <li>One person, one account — please don&apos;t create accounts for other people; invite them instead.</li>
               </ul>
             ),

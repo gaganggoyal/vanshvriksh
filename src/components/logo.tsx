@@ -29,10 +29,10 @@ export function LogoMark({ size = 36 }: { size?: number }) {
 
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
+    <div className={`flex items-center gap-2 sm:gap-2.5 ${className}`}>
       <LogoMark />
       <div className="leading-none">
-        <div className="whitespace-nowrap font-display text-[19px] font-bold tracking-tight text-ink">{BRAND.name}</div>
+        <div className="whitespace-nowrap font-display text-[17px] font-bold tracking-tight text-ink sm:text-[19px]">{BRAND.name}</div>
         <div className="mt-1 hidden whitespace-nowrap text-[11px] font-medium text-muted sm:block">
           {BRAND.descriptor} · <span className="font-devanagari">{BRAND.nameHi}</span>
         </div>

@@ -11,7 +11,7 @@
     "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && npx tsx prisma/seed.ts",
-    "test": "npx tsx src/lib/matching.test.ts && npx tsx src/lib/names.test.ts && npx tsx src/lib/kinship.test.ts && npx tsx src/lib/tree-layout.test.ts && npx tsx src/lib/extended.test.ts && npx tsx src/lib/gedcom.test.ts",
+    "test": "npx tsx src/lib/matching.test.ts && npx tsx src/lib/names.test.ts && npx tsx src/lib/kinship.test.ts && npx tsx src/lib/tree-layout.test.ts && npx tsx src/lib/extended.test.ts && npx tsx src/lib/gedcom.test.ts && npx tsx src/lib/password.test.ts && npx tsx src/lib/mail-templates.test.ts",
     "test:e2e": "python3 scripts/e2e-use-cases.py",
     "test:layout": "npx tsx scripts/layout-use-case.ts",
     "lint": "eslint src scripts prisma",

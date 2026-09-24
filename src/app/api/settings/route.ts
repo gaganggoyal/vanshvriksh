@@ -8,12 +8,20 @@ import { requireUser } from "@/lib/auth";
 const schema = z.object({
   locale: z.enum(["en", "hi"]).optional(),
   discoverable: z.boolean().optional(),
+  notifyMatches: z.boolean().optional(),
 });
 
 export async function GET() {
   const user = await requireUser();
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
-  return NextResponse.json({ locale: user.locale, email: user.email, discoverable: user.tree?.discoverable ?? true });
+  return NextResponse.json({
+    locale: user.locale,
+    email: user.email,
+    discoverable: user.tree?.discoverable ?? true,
+    notifyMatches: user.notifyMatches,
+    hasPassword: Boolean(user.passwordHash),
+    isDemo: Boolean(user.tree?.isDemo),
+  });
 }
 
 export async function POST(req: Request) {
@@ -21,8 +29,11 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid." }, { status: 400 });
-  const { locale, discoverable } = parsed.data;
-  const updated = locale ? await prisma.user.update({ where: { id: user.id }, data: { locale } }) : user;
+  const { locale, discoverable, notifyMatches } = parsed.data;
+  const updated =
+    locale || notifyMatches !== undefined
+      ? await prisma.user.update({ where: { id: user.id }, data: { locale, notifyMatches } })
+      : user;
   if (discoverable !== undefined && user.tree) {
     await prisma.tree.update({ where: { id: user.tree.id }, data: { discoverable } });
   }
@@ -30,5 +41,6 @@ export async function POST(req: Request) {
     ok: true,
     locale: updated.locale,
     discoverable: discoverable ?? user.tree?.discoverable ?? true,
+    notifyMatches: updated.notifyMatches,
   });
 }

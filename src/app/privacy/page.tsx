@@ -15,7 +15,7 @@ export default function PrivacyPage() {
     <PublicPage>
       <Legal
         title="Privacy policy"
-        updated="23 September 2026"
+        updated="24 September 2026"
         intro={
           <>
             <p>
@@ -37,7 +37,11 @@ export default function PrivacyPage() {
             body: (
               <>
                 <ul>
-                  <li><strong>Your account:</strong> your email address and language preference. There is no password.</li>
+                  <li>
+                    <strong>Your account:</strong> your email address, language preference and — only if you choose one — a
+                    password. Passwords are stored as a salted scrypt hash, which nobody, including us, can turn back into
+                    the password.
+                  </li>
                   <li>
                     <strong>Your family tree:</strong> what you choose to write — names (in any script), other names, gender,
                     dates of birth and death, place of birth, village or native place, gotra, private notes, and how people
@@ -65,7 +69,11 @@ export default function PrivacyPage() {
                   To find possible relatives: names, spelling variants, private dates, places, gotra and the names of
                   surrounding relatives are compared across families. Dates are used only inside this comparison.
                 </li>
-                <li>To email you sign-in codes and links, invitations you send, and notices that a possible relative was found.</li>
+                <li>
+                  To email you sign-in and confirmation codes, password resets and security notices, invitations you send,
+                  and alerts that a possible relative was found. You can turn relative alerts off in Settings or from any
+                  alert email; account and security emails can&apos;t be turned off while you have an account.
+                </li>
                 <li>To keep the service safe — for example rate-limiting sign-in attempts and searches.</li>
               </ul>
             ),

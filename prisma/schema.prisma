@@ -13,6 +13,13 @@ model User {
   emailVerified DateTime?
   locale        String    @default("en")
   kinNotifiedAt DateTime?
+  /// scrypt hash; empty until the user chooses a password (email codes always work).
+  passwordHash  String    @default("")
+  passwordSetAt DateTime?
+  /// Bumped when the password changes, so sessions signed before it stop working.
+  sessionVersion Int      @default(0)
+  /// Email me when someone in another family's tree may be one of my relatives.
+  notifyMatches Boolean   @default(true)
   /// Person in another tree this user was invited as; linked on onboarding.
   invitePersonId String   @default("")
   createdAt     DateTime  @default(now())
@@ -109,8 +116,14 @@ model Match {
 model AuthChallenge {
   id           String    @id @default(cuid())
   email        String
+  /// EMAIL (code + link in one letter); MAGIC is the older link-only row
   type         String
+  /// signin | signup | reset | invite
+  purpose      String    @default("signin")
+  /// Hash of the link token.
   tokenHash    String
+  /// Keyed hash of the 6-digit code sent in the same letter; either one works, once.
+  codeHash     String    @default("")
   expiresAt    DateTime
   attempts     Int       @default(0)
   consumedAt   DateTime?
@@ -120,6 +133,7 @@ model AuthChallenge {
   createdAt    DateTime  @default(now())
 
   @@index([email, type])
+  @@index([email, purpose])
   @@index([tokenHash])
 }
 

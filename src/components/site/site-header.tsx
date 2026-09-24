@@ -18,7 +18,7 @@ export function SiteHeader() {
   );
   return (
     <header className="sticky top-0 z-40 border-b border-ink/[0.06] bg-canvas/75 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-3 sm:px-5">
         <Link href="/" aria-label="Mera Vansh — home">
           <Logo />
         </Link>
@@ -33,7 +33,7 @@ export function SiteHeader() {
           <Link href="/login" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink/80 hover:bg-ink/5 sm:inline-flex">
             {c.signIn}
           </Link>
-          <Link href="/register" className="btn-primary whitespace-nowrap !px-3 !py-2 sm:!px-4">
+          <Link href="/register" className="btn-primary whitespace-nowrap !px-2.5 !py-2 !text-[13px] sm:!px-4 sm:!text-sm">
             {c.createAccount}
           </Link>
         </div>

@@ -9,7 +9,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/matches") ||
     pathname.startsWith("/find") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/onboarding");
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/welcome");
 
   if (gated && !session) {
     const url = req.nextUrl.clone();
@@ -21,5 +22,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/tree/:path*", "/find/:path*", "/matches/:path*", "/settings/:path*", "/onboarding/:path*"],
+  matcher: ["/tree/:path*", "/find/:path*", "/matches/:path*", "/settings/:path*", "/onboarding/:path*", "/welcome/:path*"],
 };

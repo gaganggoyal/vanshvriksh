@@ -92,6 +92,24 @@ def magic_from_box(box: dict) -> tuple[str | None, str | None]:
     return None, None
 
 
+def reset_from_box(box: dict) -> str | None:
+    for e in box.get("emails", []):
+        m = re.search(r"/reset\?token=([a-f0-9]{64})", e.get("text", ""))
+        if m:
+            return m.group(1)
+    return None
+
+
+def post_json(path: str, payload: dict, cookie: str | None = None):
+    return curl(["-X", "POST", f"{BASE}{path}", "-H", "content-type: application/json", "-d", json.dumps(payload)], cookie)
+
+
+def magic_post(token: str | None, cookie: str | None = None):
+    """The emailed button opens /auth/magic, which POSTs the token."""
+    code, body, h = post_json("/api/auth/magic", {"token": token or ""}, cookie)
+    return status_of(h), body if isinstance(body, dict) else {}
+
+
 def unique_email(tag: str) -> str:
     return f"{tag}.{uuid.uuid4().hex[:8]}@example.com"
 
@@ -330,13 +348,16 @@ preview = body.get("previewToken") if isinstance(body, dict) else None
 code, box, h = curl([f"{BASE}/api/auth/letterbox?token={preview}"])
 url, token = magic_from_box(box) if isinstance(box, dict) else (None, None)
 ok("magic URL uses this origin", bool(url and url.startswith(BASE)), str(url))
-code, body, h = curl(["-o", "/dev/null", f"{BASE}/api/auth/magic?token={token}"], cookie2, raw=True)
-ok("magic link sets session and redirects", status_of(h) in (307, 302) and "/onboarding" in h.get("location", ""), h.get("location"))
+st, mb = magic_post(token, cookie2)
+ok("one-click button signs a new person in", st == 200 and mb.get("ok"), str(mb))
+ok("new account is offered a password, then onboarding", mb.get("redirect", "").startswith("/welcome") and "onboarding" in mb.get("redirect", ""), str(mb))
 code, me, h = curl([f"{BASE}/api/auth/me"], cookie2)
 ok("magic session valid", isinstance(me, dict) and me.get("user", {}).get("email") == email2, str(me))
 # reuse
+st, mb = magic_post(token)
+ok("magic link is one-time", st == 400, f"{st} {mb}")
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/api/auth/magic?token={token}"], raw=True)
-ok("magic link is one-time", "/login" in h.get("location", "") and "invalid" in h.get("location", ""), h.get("location"))
+ok("a plain GET never spends a link", status_of(h) == 405, h.get(":status"))
 
 # both
 email3 = unique_email("both")
@@ -344,9 +365,18 @@ code, body, h = curl(
     ["-X", "POST", f"{BASE}/api/auth/request", "-H", "content-type: application/json",
      "-H", "origin: " + BASE, "-d", json.dumps({"email": email3, "method": "both"})],
 )
-ok("send both returns ok", isinstance(body, dict) and body.get("sent") == "both", str(body))
+ok("code request returns ok", isinstance(body, dict) and body.get("ok"), str(body))
 code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
-ok("both sends two letters", isinstance(box, dict) and len(box.get("emails", [])) == 2, str(box)[:120])
+letters = box.get("emails", []) if isinstance(box, dict) else []
+ok("one letter carries both the code and the button", len(letters) == 1 and otp_from_box(box) and magic_from_box(box)[1], str(box)[:160])
+ok("new address gets a confirm-your-email letter", letters and "confirmation code" in letters[0].get("subject", ""), str([l.get("subject") for l in letters]))
+code_b = otp_from_box(box)
+_, tok_b = magic_from_box(box)
+ob = new_cookie()
+code, body, h = post_json("/api/auth/verify-otp", {"email": email3, "code": code_b}, ob)
+ok("typing the code works", isinstance(body, dict) and body.get("ok") and body.get("needsPassword") is True, str(body))
+st, mb = magic_post(tok_b)
+ok("…and spends the button in the same letter", st == 400, f"{st} {mb}")
 
 # ---------------------------------------------------------------------------
 print("\n5. Demo cousins — tree, matches, privacy")
@@ -497,6 +527,22 @@ ok("demo families never match real ones", crossing == 0, f"{crossing} crossing m
 ok("the first family was told by letter", len(kin_rows) >= 1, str(kin_rows)[:200])
 ok("kin-found letter carries no date", all("1940" not in (r[1] + r[2]) for r in kin_rows))
 ok("kin-found letter links to matches", all("/matches" in r[2] for r in kin_rows))
+kin = kin_rows[0] if kin_rows else ("", "", "", "")
+ok("alert names the person on both sides", "Harishankar Sharma" in kin[2] and "Hari Shankar Sharma" in kin[2], kin[2][:300])
+ok("alert says why, without dates", "Birth details agree" in kin[2] and "Same village" in kin[2], kin[2][:400])
+ok("alert has one-tap yes / no answers", "action=confirm" in kin[2] and "action=dismiss" in kin[2])
+m_unsub = re.search(r"/unsubscribe\?token=([A-Za-z0-9_.-]+)", kin[2])
+ok("alert has an unsubscribe link", bool(m_unsub), kin[2][-200:])
+if m_unsub:
+    utok = m_unsub.group(1)
+    code, body, h = curl(["-X", "POST", f"{BASE}/api/unsubscribe?token={utok}", "-H", "content-type: application/x-www-form-urlencoded", "-d", "List-Unsubscribe=One-Click"])
+    ok("mail-app one-click unsubscribe works", isinstance(body, dict) and body.get("ok") and body.get("notifyMatches") is False, str(body))
+    code, st4, h = curl([f"{BASE}/api/settings"], c4)
+    ok("settings show alerts off", isinstance(st4, dict) and st4.get("notifyMatches") is False, str(st4))
+    code, body, h = post_json(f"/api/unsubscribe?token={utok}", {"on": True})
+    ok("alerts can be turned back on", isinstance(body, dict) and body.get("notifyMatches") is True, str(body))
+    code, body, h = curl(["-X", "POST", f"{BASE}/api/unsubscribe?token={utok[:-2]}xx"])
+    ok("forged unsubscribe token refused", status_of(h) == 400, str(body))
 
 # a corrected record withdraws a proposal that no longer scores
 import random, string
@@ -709,8 +755,8 @@ letter = (box.get("emails") or [{}])[0]
 ok("invite letter says who they are to you", "Ishaan Rao" in letter.get("text", "") and "छोटा भाई" in letter.get("text", ""), letter.get("text", "")[:200])
 url, tok = magic_from_box(box)
 nk = new_cookie()
-code, body, h = curl(["-o", "/dev/null", f"{BASE}/api/auth/magic?token={tok}"], nk, raw=True)
-ok("invitee lands on onboarding", "/onboarding" in h.get("location", ""), h.get("location"))
+st, mb = magic_post(tok, nk)
+ok("invitee lands on onboarding (after an optional password)", "onboarding" in mb.get("redirect", ""), str(mb))
 code, ob, h = curl([f"{BASE}/api/onboarding"], nk)
 inv = ob.get("invite") or {}
 ok("onboarding is pre-filled from the invitation", inv.get("prefill", {}).get("givenName") == "Ishaan" and inv.get("inviter") == "Kavya Rao", str(ob))
@@ -730,8 +776,8 @@ ex_email, ek, _ = new_family("existing", {"givenName": "Diya", "familyName": "Ra
 code, body, h = curl(["-X", "POST", f"{BASE}/api/invite", "-H", "content-type: application/json", "-d", json.dumps({"email": ex_email, "personId": kids["diya"]})], kav)
 code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
 url, tok = magic_from_box(box)
-code, body, h = curl(["-o", "/dev/null", f"{BASE}/api/auth/magic?token={tok}"], ek, raw=True)
-ok("existing family goes to Possible kin", "/matches" in h.get("location", ""), h.get("location"))
+st, mb = magic_post(tok, ek)
+ok("existing family goes to Possible kin", mb.get("redirect") == "/matches", str(mb))
 code, em, h = curl([f"{BASE}/api/matches"], ek)
 em_row = next((m for m in em.get("matches", []) if m.get("source") == "invite"), {})
 ok("waits for their yes, inviter already said yes", em_row.get("status") == "PENDING" and em_row.get("confirmedByThem") and not em_row.get("confirmedByMe"), str(em_row and {k: em_row.get(k) for k in ("status", "confirmedByMe", "confirmedByThem")}))
@@ -776,6 +822,100 @@ code, body, h = curl([f"{BASE}/sitemap.xml"], raw=True)
 ok("sitemap lists the public pages", status_of(h) == 200 and "<loc>" in str(body))
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/opengraph-image"], raw=True)
 ok("share image renders", status_of(h) == 200 and h.get("content-type", "").startswith("image/png"), str(h.get("content-type")))
+
+# ---------------------------------------------------------------------------
+print("\n13. Passwords, forgot password, sign-out everywhere")
+# A fresh client address: the sign-in limiter counts per IP, and earlier sections used plenty.
+RUN_IP = f"10.{uuid.uuid4().int % 250}.{uuid.uuid4().int % 250}.{uuid.uuid4().int % 250}"
+pw_email, pk, _ = new_family("pw", {"givenName": "Tara", "familyName": "Iyer", "gender": "FEMALE"})
+code, body, h = post_json("/api/auth/password", {"password": "short"}, pk)
+ok("weak password refused", status_of(h) == 400 and "8 characters" in str(body), str(body))
+code, body, h = post_json("/api/auth/password", {"password": "password123"}, pk)
+ok("famous password refused", status_of(h) == 400, str(body))
+code, body, h = post_json("/api/auth/password", {"password": "banyan-roots-1947"}, pk)
+ok("password set after sign-up", isinstance(body, dict) and body.get("ok"), str(body))
+code, me, h = curl([f"{BASE}/api/auth/me"], pk)
+ok("account now has a password", me.get("user", {}).get("hasPassword") is True, str(me))
+
+code, wrong, h = post_json("/api/auth/login", {"email": pw_email, "password": "banyan-roots-1948"})
+ok("wrong password refused", status_of(h) == 401, str(wrong))
+code, ghost, h = post_json("/api/auth/login", {"email": unique_email("nobody"), "password": "banyan-roots-1947"})
+ok("unknown email gets the very same answer", status_of(h) == 401 and ghost == wrong, f"{ghost} vs {wrong}")
+other = new_cookie()
+code, body, h = post_json("/api/auth/login", {"email": pw_email, "password": "banyan-roots-1947"}, other)
+ok("password sign-in works", isinstance(body, dict) and body.get("ok") and body.get("needsOnboarding") is False, str(body))
+code, body, h = curl([f"{BASE}/api/tree"], other)
+ok("second device is signed in", status_of(h) == 200)
+
+code, body, h = post_json("/api/auth/password", {"password": "monsoon-mango-2026"}, pk)
+ok("changing a password needs the current one", status_of(h) == 400, str(body))
+code, body, h = post_json("/api/auth/password", {"password": "monsoon-mango-2026", "currentPassword": "banyan-roots-1947"}, pk)
+ok("password changed", isinstance(body, dict) and body.get("ok"), str(body))
+code, body, h = curl([f"{BASE}/api/tree"], other, raw=True)
+ok("other devices are signed out", status_of(h) == 401, h.get(":status"))
+code, body, h = curl([f"{BASE}/api/tree"], pk)
+ok("this device stays signed in", status_of(h) == 200, h.get(":status"))
+
+code, body, h = post_json("/api/auth/request", {"email": pw_email, "intent": "reset"})
+ok("reset requested", isinstance(body, dict) and body.get("ok"), str(body))
+code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
+letter = (box.get("emails") or [{}])[0]
+rcode, rtok = otp_from_box(box), reset_from_box(box)
+ok("reset letter has a code and a reset button", bool(rcode and rtok) and letter.get("subject") == "Reset your Mera Vansh password", str(letter.get("subject")))
+code, ghost_reset, h = post_json("/api/auth/request", {"email": unique_email("nobody"), "intent": "reset"})
+code, gbox, h = curl([f"{BASE}/api/auth/letterbox?token={ghost_reset.get('previewToken')}"])
+ok("reset for an unknown email looks the same but sends nothing", ghost_reset.get("ok") and set(ghost_reset) == set(body) and not gbox.get("emails"), f"{ghost_reset} {gbox}")
+
+code, chk, h = post_json("/api/auth/reset/check", {"token": rtok})
+ok("reset link is checked without spending it", chk.get("ok") and "•" in chk.get("email", "") and pw_email not in json.dumps(chk), str(chk))
+code, body, h = post_json("/api/auth/reset", {"email": pw_email, "code": rcode, "password": "short"})
+ok("weak new password refused before the code is spent", status_of(h) == 400, str(body))
+code, body, h = post_json("/api/auth/reset", {"email": pw_email, "code": "000000", "password": "river-stone-2031"})
+ok("wrong reset code refused", status_of(h) == 400, str(body))
+rk = new_cookie()
+code, body, h = post_json("/api/auth/reset", {"email": pw_email, "code": rcode, "password": "river-stone-2031"}, rk)
+ok("reset by code sets the new password and signs in", isinstance(body, dict) and body.get("ok"), str(body))
+code, body, h = curl([f"{BASE}/api/tree"], pk, raw=True)
+ok("reset signs out every other device", status_of(h) == 401, h.get(":status"))
+code, body, h = post_json("/api/auth/login", {"email": pw_email, "password": "monsoon-mango-2026"})
+ok("old password no longer works", status_of(h) == 401)
+code, body, h = post_json("/api/auth/login", {"email": pw_email, "password": "river-stone-2031"})
+ok("new password works", isinstance(body, dict) and body.get("ok"), str(body))
+code, chk, h = post_json("/api/auth/reset/check", {"token": rtok})
+ok("the same letter's button is spent too", status_of(h) == 400, str(chk))
+
+code, body, h = post_json("/api/auth/request", {"email": pw_email, "intent": "reset"})
+code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
+rtok2 = reset_from_box(box)
+code, body, h = post_json("/api/auth/reset", {"token": rtok2, "password": "cedar-lamp-2040"})
+ok("reset by button works", isinstance(body, dict) and body.get("ok"), str(body))
+code, body, h = post_json("/api/auth/reset", {"token": rtok2, "password": "cedar-lamp-2041"})
+ok("reset button is one-time", status_of(h) == 400, str(body))
+
+code, body, h = post_json("/api/auth/request", {"email": pw_email, "intent": "signup"})
+code, box, h = curl([f"{BASE}/api/auth/letterbox?token={body.get('previewToken')}"])
+letter = (box.get("emails") or [{}])[0]
+ok("signing up with a known email sends a sign-in code instead", "sign-in code" in letter.get("subject", "") and "already have an account" in letter.get("text", ""), str(letter.get("subject")))
+
+db = sqlite3.connect(DB_PATH)
+notices = db.execute("select count(*) from EmailOutbox where purpose = 'password-changed' and \"to\" = ?", (pw_email,)).fetchone()[0]
+stored = db.execute("select passwordHash from User where email = ?", (pw_email,)).fetchone()[0]
+db.close()
+ok("every change or reset sends a security notice", notices >= 3, f"{notices} notices")
+ok("password stored only as a scrypt hash", stored.startswith("scrypt$") and "cedar" not in stored, stored[:20])
+
+code, body, h = post_json("/api/auth/password", {"password": "shared-demo-2026"}, demo_login("priya"))
+ok("demo families can't set a password", status_of(h) == 403, str(body))
+code, body, h = post_json("/api/auth/request", {"email": "priya@demo.meravansh.lol"})
+ok("no letters to demo addresses", status_of(h) == 403, str(body))
+
+for path in ["/forgot", "/reset?email=a%40b.co", "/unsubscribe?token=x"]:
+    code, page, h = curl([f"{BASE}{path}"], raw=True)
+    ok(f"{path.split('?')[0]} renders", status_of(h) == 200, h.get(":status"))
+code, body, h = curl(["-o", "/dev/null", f"{BASE}/welcome"], raw=True)
+ok("/welcome needs a session", "/login" in h.get("location", ""), h.get("location"))
+code, body, h = curl(["-o", "/dev/null", f"{BASE}/email/logo.png"], raw=True)
+ok("email logo is a PNG", status_of(h) == 200 and h.get("content-type", "").startswith("image/png"), str(h.get("content-type")))
 
 print("\n" + ("=" * 56))
 print(f"Passed {passes}   Failed {len(fails)}")

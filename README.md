@@ -85,13 +85,20 @@ Resend and most SMTP providers only send from a domain whose DNS records (SPF, D
 
 ## Auth
 
-| Method | How |
+| Flow | How |
 | --- | --- |
-| OTP | 6-digit code, 10 minutes, hashed at rest, attempt-limited |
-| Magic link | one-time token, 20 minutes |
-| Invite | 7-day magic link |
+| Sign up | email → one letter with a 6-digit code **and** a one-click button → choose a password (optional) → onboarding |
+| Sign in | email + password, or "Email me a code instead" (code + button in one letter) |
+| Forgot password | code + button in one letter; the button opens `/reset?token=…`, the code works on `/reset?email=…` |
+| Invite | 7-day one-click link |
 
-Production email: set `EMAIL_DELIVERY=resend` and `RESEND_API_KEY`.
+- Code and button share one challenge row: using either spends the letter. Codes are HMAC-keyed with `AUTH_SECRET`, 5 tries, the three newest letters accepted.
+- Buttons open a page that POSTs the token, so mail scanners that pre-open links can't spend it.
+- Passwords: scrypt (N=2¹⁵, r=8), light policy (8+ chars, not common, not the email). Changing or resetting one bumps `User.sessionVersion`, which signs out every other device, and sends a "password changed" notice.
+- Sign-up with a known email, and resets for unknown ones, answer exactly like the normal case — the API never reveals who has an account.
+- Relative alerts (`notifyMatches`) carry `List-Unsubscribe` one-click headers and a signed `/unsubscribe` link.
+
+Letters live in `src/lib/mail-templates.ts` (English + हिन्दी, table layout for Gmail/Outlook). The logo PNG is rendered from `public/favicon.svg` at `/email/logo.png`.
 
 ## Privacy model
 

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { hashToken, rateLimit, setSessionCookie } from "@/lib/auth";
+import { rateLimit, startSession } from "@/lib/auth";
+import { CODE_ERRORS, checkCode, consume } from "@/lib/challenges";
 
 const schema = z.object({
   email: z.string().email().transform((e) => e.trim().toLowerCase()),
@@ -9,47 +10,18 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const json = await req.json().catch(() => null);
-  const parsed = schema.safeParse(json);
+  const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Enter the 6-digit code." }, { status: 400 });
   }
   const { email, code } = parsed.data;
   if (!rateLimit(`otp:${email}`, 8, 10 * 60 * 1000).ok) {
-    return NextResponse.json({ error: "Too many tries. Request a new code." }, { status: 429 });
+    return NextResponse.json({ error: CODE_ERRORS.locked }, { status: 429 });
   }
 
-  const challenge = await prisma.authChallenge.findFirst({
-    where: {
-      email,
-      type: "OTP",
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!challenge) {
-    return NextResponse.json({ error: "That code has expired. Request a new one." }, { status: 400 });
-  }
-
-  await prisma.authChallenge.update({
-    where: { id: challenge.id },
-    data: { attempts: { increment: 1 } },
-  });
-
-  if (challenge.attempts >= 5) {
-    return NextResponse.json({ error: "Too many tries. Request a new code." }, { status: 400 });
-  }
-
-  if (challenge.tokenHash !== hashToken(code)) {
-    return NextResponse.json({ error: "That code does not match." }, { status: 400 });
-  }
-
-  await prisma.authChallenge.update({
-    where: { id: challenge.id },
-    data: { consumedAt: new Date() },
-  });
+  const check = await checkCode(email, code, ["signin", "signup"]);
+  if (!check.ok) return NextResponse.json({ error: CODE_ERRORS[check.reason] }, { status: 400 });
+  if (!(await consume(check.challenge.id))) return NextResponse.json({ error: CODE_ERRORS.expired }, { status: 400 });
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -57,7 +29,11 @@ export async function POST(req: Request) {
     create: { email, emailVerified: new Date() },
     include: { tree: true },
   });
-
-  await setSessionCookie({ userId: user.id, email: user.email });
-  return NextResponse.json({ ok: true, needsOnboarding: !user.tree });
+  await startSession(user);
+  return NextResponse.json({
+    ok: true,
+    needsOnboarding: !user.tree,
+    // A brand-new account is offered a password next; a returning one is not nagged.
+    needsPassword: check.challenge.purpose === "signup" && !user.passwordHash,
+  });
 }

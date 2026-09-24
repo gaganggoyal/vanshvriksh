@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { demoEnabled, setSessionCookie } from "@/lib/auth";
+import { demoEnabled, startSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
   if (!demoEnabled()) {
@@ -16,6 +16,6 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  await setSessionCookie({ userId: user.id, email: user.email });
+  await startSession(user);
   return NextResponse.json({ ok: true, needsOnboarding: !user.tree });
 }

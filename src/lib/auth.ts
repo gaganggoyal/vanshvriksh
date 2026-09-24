@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomInt } from "crypto";
+import { createHash, createHmac, randomBytes, randomInt } from "crypto";
 import { prisma } from "./db";
 import { getSession, setSessionCookie, clearSessionCookie, type Session } from "./session";
 
@@ -7,6 +7,11 @@ export type { Session };
 
 export function hashToken(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+/** Codes are only a million strong, so they are keyed with the server secret rather than plainly hashed. */
+export function hashCode(email: string, code: string) {
+  return createHmac("sha256", process.env.AUTH_SECRET || "dev-secret").update(`${email}:${code}`).digest("hex");
 }
 
 export function generateOtp() {
@@ -20,10 +25,21 @@ export function generateToken() {
 export async function requireUser() {
   const session = await getSession();
   if (!session) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
     include: { tree: true },
   });
+  // Signed before the password last changed: that device has to sign in again.
+  if (!user || user.sessionVersion !== session.v) return null;
+  return user;
+}
+
+export async function startSession(user: { id: string; email: string; sessionVersion: number }) {
+  await setSessionCookie({ userId: user.id, email: user.email, v: user.sessionVersion });
+}
+
+export function clientIp(req: Request) {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
