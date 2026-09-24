@@ -13,6 +13,7 @@ import {
   Mail,
   Network,
   PenLine,
+  PlayCircle,
   ScanSearch,
   Search,
   ShieldCheck,
@@ -21,6 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import { useCopy } from "@/components/locale";
+import { FamilyTour } from "@/components/tour/family-tour";
 import { fill } from "@/lib/i18n";
 
 type Stats = { families: number; people: number; remembered: number; linked: number };
@@ -129,7 +131,7 @@ function ProductVisual() {
 }
 
 export function Landing({ stats, demo }: { stats: Stats; demo: boolean }) {
-  const { c } = useCopy();
+  const { c, locale } = useCopy();
   const [q, setQ] = useState("");
   const { result, loading } = useTeaser(q);
   const findHref = `/login?next=${encodeURIComponent(`/find?q=${q.trim()}`)}`;
@@ -231,6 +233,9 @@ export function Landing({ stats, demo }: { stats: Stats; demo: boolean }) {
                   {c.demo}
                 </Link>
               )}
+              <a href="#tour" className="inline-flex items-center gap-2 px-2 py-3 text-sm font-semibold text-brand hover:underline">
+                <PlayCircle className="h-5 w-5" /> {c.tourWatch}
+              </a>
             </div>
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink/60">
               {[c.perk2, c.featHindi, c.perk3].map((p) => (
@@ -266,6 +271,25 @@ export function Landing({ stats, demo }: { stats: Stats; demo: boolean }) {
           </div>
         </section>
       )}
+
+      {/* The 30-second tour */}
+      <section id="tour" className="mx-auto max-w-5xl scroll-mt-20 px-5 pt-16 lg:pt-20">
+        <div className="text-center">
+          <span className="eyebrow">
+            <PlayCircle className="h-3.5 w-3.5" /> {c.tourEyebrow}
+          </span>
+          <h2 className="mx-auto mt-4 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-5xl">{c.tourTitle}</h2>
+          <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-ink/65">{c.tourBody}</p>
+        </div>
+        <div className="mt-10">
+          <FamilyTour />
+        </div>
+        <p className="mt-4 text-center text-sm">
+          <a href={`/media/mera-vansh-tour-${locale}.mp4`} download className="inline-flex items-center gap-1.5 font-semibold text-brand hover:underline">
+            <Download className="h-4 w-4" /> {c.tourDownload}
+          </a>
+        </p>
+      </section>
 
       {/* How relatives are found */}
       <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-24">

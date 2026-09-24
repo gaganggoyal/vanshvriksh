@@ -914,6 +914,13 @@ for path in ["/forgot", "/reset?email=a%40b.co", "/unsubscribe?token=x"]:
     ok(f"{path.split('?')[0]} renders", status_of(h) == 200, h.get(":status"))
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/welcome"], raw=True)
 ok("/welcome needs a session", "/login" in h.get("location", ""), h.get("location"))
+code, page, h = curl([f"{BASE}/"], raw=True)
+ok("home page carries the 30-second tour", 'id="tour"' in str(page) and "See a family tree find a relative" in str(page))
+code, page, h = curl([f"{BASE}/tour"], raw=True)
+ok("/tour renders", status_of(h) == 200 and "Watch the 30-second tour" in str(page), h.get(":status"))
+for lang in ("en", "hi"):
+    code, body, h = curl(["-o", "/dev/null", f"{BASE}/media/mera-vansh-tour-{lang}.mp4"], raw=True)
+    ok(f"tour video ({lang}) downloads as MP4", status_of(h) == 200 and h.get("content-type", "").startswith("video/mp4"), str(h.get("content-type")))
 code, body, h = curl(["-o", "/dev/null", f"{BASE}/email/logo.png"], raw=True)
 ok("email logo is a PNG", status_of(h) == 200 and h.get("content-type", "").startswith("image/png"), str(h.get("content-type")))
 
